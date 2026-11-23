@@ -15,6 +15,59 @@ const supabaseAnonKey =
   (import.meta as any).env?.VITE_SUPABASE_ANON_KEY ||
   DEFAULT_SUPABASE_ANON_KEY;
 
+function ensurePermanentSupabaseConfig() {
+  try {
+    const keysToSeed = [
+      'min4_supabase_url',
+      'supabase_url',
+      'SUPABASE_URL',
+      'VITE_SUPABASE_URL',
+    ];
+    const anonKeysToSeed = [
+      'min4_supabase_anon_key',
+      'min4_supabase_key',
+      'supabase_anon_key',
+      'SUPABASE_ANON_KEY',
+      'VITE_SUPABASE_ANON_KEY',
+    ];
+
+    keysToSeed.forEach((k) => {
+      if (!window.localStorage.getItem(k)) {
+        window.localStorage.setItem(k, supabaseUrl);
+      }
+    });
+
+    anonKeysToSeed.forEach((k) => {
+      if (!window.localStorage.getItem(k)) {
+        window.localStorage.setItem(k, supabaseAnonKey);
+      }
+    });
+
+    const configObjectKeys = [
+      'min4_supabase_config',
+      'min4_app_supabase_config',
+      'supabase_config',
+    ];
+    const configPayload = JSON.stringify({
+      url: supabaseUrl,
+      supabaseUrl,
+      anonKey: supabaseAnonKey,
+      supabaseAnonKey,
+      autoSync: true,
+    });
+
+    configObjectKeys.forEach((k) => {
+      if (!window.localStorage.getItem(k)) {
+        window.localStorage.setItem(k, configPayload);
+      }
+    });
+  } catch {
+    // Abaikan jika akses storage dibatasi browser
+  }
+}
+
+ensurePermanentSupabaseConfig();
+
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 type SelectedRole = 'admin' | 'guru';
@@ -30,6 +83,7 @@ function PortalAuthGate() {
   const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
+    ensurePermanentSupabaseConfig();
     let active = true;
 
     supabase.auth.getSession().then(({ data }) => {
@@ -43,6 +97,7 @@ function PortalAuthGate() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       if (active) {
+        ensurePermanentSupabaseConfig();
         setSession(nextSession ?? null);
         setCheckingSession(false);
       }
@@ -63,6 +118,7 @@ function PortalAuthGate() {
     e.preventDefault();
     setErrorMsg('');
     setLoading(true);
+    ensurePermanentSupabaseConfig();
 
     try {
       const rawInput = email.trim().toLowerCase();
@@ -109,6 +165,7 @@ function PortalAuthGate() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
+    ensurePermanentSupabaseConfig();
     setEmail('');
     setPassword('');
     setErrorMsg('');
