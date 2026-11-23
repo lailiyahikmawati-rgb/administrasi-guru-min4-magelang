@@ -71,7 +71,7 @@ function hideManualSupabasePrompts() {
     const root = document.getElementById('root');
     if (!root) return;
 
-    const candidates = root.querySelectorAll('button, a, div');
+    const candidates = root.querySelectorAll('button, a, div, span, p');
     candidates.forEach((el) => {
       const htmlEl = el as HTMLElement;
       if (htmlEl.dataset.min4PortalBar === 'true') return;
@@ -80,7 +80,10 @@ function hideManualSupabasePrompts() {
       const isDirectAction =
         text === 'Mode Lokal • Hubungkan Supabase' ||
         text.startsWith('Koneksi Supabase') ||
-        text.includes('Status Cloud: Penyimpanan Lokal');
+        text.includes('Status Cloud: Penyimpanan Lokal') ||
+        text.includes('Penyimpanan: Lokal Browser') ||
+        text === 'Penyimpanan:' ||
+        text === 'Lokal Browser';
 
       if (isDirectAction && htmlEl.offsetHeight > 0 && htmlEl.offsetHeight < 140) {
         htmlEl.style.display = 'none';
