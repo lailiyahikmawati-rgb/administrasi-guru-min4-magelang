@@ -1,3 +1,10 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Menyembunyikan tombol/indikator "Hubungkan Supabase" & "Penyimpanan Lokal" di layar utama */
+button[title*="Supabase" i],
+button[aria-label*="Supabase" i],
+[data-testid*="supabase" i] {
+  display: none !important;
+}
