@@ -8,6 +8,7 @@ const DEFAULT_SUPABASE_URL = 'https://mqgnwzgyrckdwpysfbgn.supabase.co';
 const DEFAULT_SUPABASE_ANON_KEY =
   'sb_publishable_032N2HjrA1o26xfa8A1V1g_X2lIuXos';
 const ADMIN_EMAIL = 'lailiya@min4.sch.id';
+const STORE_TABLE = 'min4_app_store';
 
 const supabaseUrl =
   (import.meta as any).env?.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
@@ -94,11 +95,522 @@ function hideManualSupabasePrompts() {
   }
 }
 
+function isDataMasterActive(): boolean {
+  try {
+    const root = document.getElementById('root');
+    if (!root) return false;
+
+    const headings = Array.from(
+      root.querySelectorAll('h1, h2, h3, h4, p, div, span')
+    );
+    const hasMasterHeader = headings.some((el) => {
+      const h = el as HTMLElement;
+      if (h.dataset.min4PortalBar === 'true') return false;
+      const t = (h.textContent || '').trim();
+      return (
+        (t === '2. Data Master' || t === 'Data Master') &&
+        h.offsetHeight > 0 &&
+        h.offsetHeight < 80
+      );
+    });
+
+    const activeNavButtons = Array.from(root.querySelectorAll('button, a'));
+    const isNavSelected = activeNavButtons.some((btn) => {
+      const b = btn as HTMLElement;
+      if (b.dataset.min4PortalBar === 'true') return false;
+      const t = (b.textContent || '').trim();
+      const isMasterBtn = t.includes('Data Master');
+      const cls = b.className || '';
+      const ariaSelected = b.getAttribute('aria-selected') === 'true';
+      const ariaCurrent = b.getAttribute('aria-current') === 'page';
+      return (
+        isMasterBtn &&
+        (ariaSelected ||
+          ariaCurrent ||
+          cls.includes('active') ||
+          cls.includes('bg-emerald-700') ||
+          cls.includes('bg-emerald-600') ||
+          cls.includes('bg-white/15'))
+      );
+    });
+
+    return hasMasterHeader || isNavSelected;
+  } catch {
+    return false;
+  }
+}
+
+function lockDataMasterForNonAdmin(isAdmin: boolean): boolean {
+  try {
+    const root = document.getElementById('root');
+    if (!root) return false;
+
+    if (isAdmin) {
+      root.querySelectorAll('[data-min4-locked="true"]').forEach((el) => {
+        const h = el as HTMLElement;
+        h.removeAttribute('disabled');
+        h.removeAttribute('data-min4-locked');
+        h.style.pointerEvents = '';
+        h.style.opacity = '';
+      });
+      return false;
+    }
+
+    const inDataMaster = isDataMasterActive();
+    if (!inDataMaster) return false;
+
+    const controls = root.querySelectorAll('button, input, select, textarea');
+    controls.forEach((el) => {
+      const h = el as HTMLElement;
+      if (h.dataset.min4PortalBar === 'true') return;
+      if (h.closest('[data-min4-portal-bar="true"]')) return;
+
+      const label = (h.textContent || '').trim().toLowerCase();
+      const isNavigationButton =
+        h.tagName === 'BUTTON' &&
+        /^\d+[a-z]?\.\s/i.test(label) &&
+        !label.includes('simpan') &&
+        !label.includes('tambah') &&
+        !label.includes('edit') &&
+        !label.includes('hapus') &&
+        !label.includes('reset') &&
+        !label.includes('import') &&
+        !label.includes('impor');
+
+      if (isNavigationButton) return;
+
+      if (
+        h.tagName === 'INPUT' ||
+        h.tagName === 'SELECT' ||
+        h.tagName === 'TEXTAREA'
+      ) {
+        (h as HTMLInputElement).disabled = true;
+        h.dataset.min4Locked = 'true';
+        h.style.opacity = '0.65';
+      } else if (h.tagName === 'BUTTON') {
+        (h as HTMLButtonElement).disabled = true;
+        h.dataset.min4Locked = 'true';
+        h.style.pointerEvents = 'none';
+        h.style.opacity = '0.45';
+      }
+    });
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+type TemplateCategory = 'data_master_siswa' | 'jurnal_kbm' | 'penilaian_siswa';
+
+const TEMPLATE_CONFIGS: Record<
+  TemplateCategory,
+  {
+    label: string;
+    adminOnly: boolean;
+    headers: string[];
+    sampleRows: string[][];
+  }
+> = {
+  data_master_siswa: {
+    label: 'Data Master Siswa & Kelas (Khusus Admin)',
+    adminOnly: true,
+    headers: ['nisn', 'nama_siswa', 'kelas', 'jenis_kelamin', 'keterangan'],
+    sampleRows: [
+      ['1234567890', 'Ahmad Fauzi', '6A', 'L', 'Siswa aktif MIN 4 Magelang'],
+      ['1234567891', 'Aisyah Rahma', '6A', 'P', 'Siswa aktif MIN 4 Magelang'],
+    ],
+  },
+  jurnal_kbm: {
+    label: 'Jurnal Pembelajaran & Kehadiran',
+    adminOnly: false,
+    headers: ['tanggal', 'kelas', 'mapel', 'materi', 'catatan_kehadiran'],
+    sampleRows: [
+      ['2026-11-23', '6A', 'Fiqih', 'Zakat Fitrah & Zakat Mal', 'Hadir semua'],
+      ['2026-11-24', '6A', 'Bahasa Indonesia', 'Teks Eksplanasi', '1 siswa izin'],
+    ],
+  },
+  penilaian_siswa: {
+    label: 'Buku Nilai & Skor Asesmen',
+    adminOnly: false,
+    headers: ['nisn', 'nama_siswa', 'kelas', 'mapel', 'nilai_tugas', 'nilai_ujian'],
+    sampleRows: [
+      ['1234567890', 'Ahmad Fauzi', '6A', 'Fiqih', '88', '90'],
+      ['1234567891', 'Aisyah Rahma', '6A', 'Fiqih', '92', '94'],
+    ],
+  },
+};
+
+function escapeCsvCell(val: string): string {
+  const str = String(val ?? '');
+  if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
+function buildCsvContent(headers: string[], rows: string[][]): string {
+  const headerLine = headers.map(escapeCsvCell).join(',');
+  const bodyLines = rows.map((row) => row.map(escapeCsvCell).join(','));
+  return '\uFEFF' + [headerLine, ...bodyLines].join('\n');
+}
+
+function parseCsvLine(line: string): string[] {
+  const result: string[] = [];
+  let current = '';
+  let inQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQuotes && line[i + 1] === '"') {
+        current += '"';
+        i++;
+      } else {
+        inQuotes = !inQuotes;
+      }
+    } else if (ch === ',' && !inQuotes) {
+      result.push(current.trim());
+      current = '';
+    } else {
+      current += ch;
+    }
+  }
+  result.push(current.trim());
+  return result;
+}
+
+function parseCsvRows(csvText: string): { headers: string[]; records: Record<string, string>[] } {
+  const cleaned = csvText.replace(/^\uFEFF/, '').trim();
+  if (!cleaned) {
+    return { headers: [], records: [] };
+  }
+  const lines = cleaned
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0);
+
+  if (lines.length === 0) {
+    return { headers: [], records: [] };
+  }
+
+  const headers = parseCsvLine(lines[0]);
+  const records: Record<string, string>[] = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const values = parseCsvLine(lines[i]);
+    const rowObj: Record<string, string> = {};
+    headers.forEach((h, idx) => {
+      rowObj[h] = values[idx] ?? '';
+    });
+    records.push(rowObj);
+  }
+
+  return { headers, records };
+}
+
+function downloadFile(filename: string, content: string, mimeType: string) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
 ensurePermanentSupabaseConfig();
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 type SelectedRole = 'admin' | 'guru';
+
+function TemplateIoModal({
+  open,
+  onClose,
+  user,
+  isAdmin,
+}: {
+  open: boolean;
+  onClose: () => void;
+  user: any;
+  isAdmin: boolean;
+}) {
+  const [category, setCategory] = useState<TemplateCategory>(
+    isAdmin ? 'data_master_siswa' : 'jurnal_kbm'
+  );
+  const [importedRows, setImportedRows] = useState<Record<string, string>[]>([]);
+  const [statusMsg, setStatusMsg] = useState('');
+  const [savingCloud, setSavingCloud] = useState(false);
+
+  useEffect(() => {
+    if (!isAdmin && category === 'data_master_siswa') {
+      setCategory('jurnal_kbm');
+    }
+  }, [isAdmin, category]);
+
+  if (!open) return null;
+
+  const activeCfg = TEMPLATE_CONFIGS[category];
+  const isBlockedByRole = activeCfg.adminOnly && !isAdmin;
+
+  const handleDownloadTemplate = () => {
+    const csv = buildCsvContent(activeCfg.headers, activeCfg.sampleRows);
+    downloadFile(
+      `template_${category}_min4_magelang.csv`,
+      csv,
+      'text/csv;charset=utf-8;'
+    );
+    setStatusMsg('Template CSV berhasil diunduh. Silakan isi data di Excel/Sheets lalu impor kembali.');
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (isBlockedByRole) {
+      setStatusMsg('Hanya Admin yang dapat mengimpor template Data Master.');
+      e.target.value = '';
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const text = String(reader.result || '');
+      const parsed = parseCsvRows(text);
+      if (parsed.records.length === 0) {
+        setStatusMsg('File kosong atau belum memiliki baris data.');
+        return;
+      }
+      setImportedRows(parsed.records);
+      setStatusMsg(`Berhasil membaca ${parsed.records.length} baris data dari ${file.name}.`);
+    };
+    reader.readAsText(file, 'utf-8');
+    e.target.value = '';
+  };
+
+  const handleExportCsv = () => {
+    const rowsToExport =
+      importedRows.length > 0
+        ? importedRows.map((rec) =>
+            activeCfg.headers.map((h) => rec[h] ?? '')
+          )
+        : activeCfg.sampleRows;
+
+    const csv = buildCsvContent(activeCfg.headers, rowsToExport);
+    downloadFile(
+      `ekspor_${category}_min4_magelang.csv`,
+      csv,
+      'text/csv;charset=utf-8;'
+    );
+    setStatusMsg(`Berhasil mengekspor ${rowsToExport.length} baris ke file CSV.`);
+  };
+
+  const handleSaveToSupabase = async () => {
+    if (isBlockedByRole) {
+      setStatusMsg('Hanya Admin yang dapat menyimpan Data Master.');
+      return;
+    }
+    if (!user?.id) {
+      setStatusMsg('Sesi pengguna tidak ditemukan.');
+      return;
+    }
+    if (importedRows.length === 0) {
+      setStatusMsg('Silakan impor file CSV terlebih dahulu sebelum menyimpan ke Supabase.');
+      return;
+    }
+
+    setSavingCloud(true);
+    setStatusMsg('');
+
+    try {
+      const { data: existing, error: fetchErr } = await supabase
+        .from(STORE_TABLE)
+        .select('payload')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (fetchErr) {
+        setStatusMsg(`Gagal membaca data lama: ${fetchErr.message}`);
+        return;
+      }
+
+      const currentPayload =
+        existing?.payload && typeof existing.payload === 'object'
+          ? (existing.payload as Record<string, any>)
+          : {};
+
+      const nextPayload = {
+        ...currentPayload,
+        [`template_${category}`]: importedRows,
+        last_template_import_at: new Date().toISOString(),
+      };
+
+      const { error: upsertErr } = await supabase.from(STORE_TABLE).upsert(
+        {
+          user_id: user.id,
+          payload: nextPayload,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id' }
+      );
+
+      if (upsertErr) {
+        setStatusMsg(`Gagal menyimpan ke Supabase: ${upsertErr.message}`);
+        return;
+      }
+
+      setStatusMsg(
+        `Sukses! ${importedRows.length} baris data (${activeCfg.label}) tersimpan ke Supabase Cloud.`
+      );
+    } catch {
+      setStatusMsg('Terjadi kesalahan saat menyimpan ke Supabase.');
+    } finally {
+      setSavingCloud(false);
+    }
+  };
+
+  return (
+    <div
+      data-min4-portal-bar="true"
+      className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4"
+    >
+      <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden max-h-[90vh] flex flex-col">
+        <div className="bg-emerald-800 text-white px-6 py-4 flex items-center justify-between">
+          <div>
+            <h2 className="text-base font-bold">
+              Impor Template &amp; Ekspor Data • MIN 4 Magelang
+            </h2>
+            <p className="text-xs text-emerald-100">
+              Isi massal lewat CSV/Excel lalu ekspor atau simpan ke Supabase
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-3 py-1 rounded-lg bg-white/15 hover:bg-white/25 text-xs font-semibold cursor-pointer"
+          >
+            Tutup
+          </button>
+        </div>
+
+        <div className="p-6 space-y-5 overflow-y-auto text-sm">
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1.5">
+              Pilih Jenis Data / Template
+            </label>
+            <select
+              value={category}
+              onChange={(e) => {
+                setCategory(e.target.value as TemplateCategory);
+                setImportedRows([]);
+                setStatusMsg('');
+              }}
+              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-600"
+            >
+              {isAdmin && (
+                <option value="data_master_siswa">
+                  {TEMPLATE_CONFIGS.data_master_siswa.label}
+                </option>
+              )}
+              <option value="jurnal_kbm">
+                {TEMPLATE_CONFIGS.jurnal_kbm.label}
+              </option>
+              <option value="penilaian_siswa">
+                {TEMPLATE_CONFIGS.penilaian_siswa.label}
+              </option>
+            </select>
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={handleDownloadTemplate}
+              className="px-4 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold cursor-pointer"
+            >
+              1. Unduh Template CSV
+            </button>
+
+            <label
+              className={`px-4 py-2.5 rounded-xl text-xs font-semibold border ${
+                isBlockedByRole
+                  ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
+                  : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border-emerald-300 cursor-pointer'
+              }`}
+            >
+              2. Impor File CSV Terisi
+              <input
+                type="file"
+                accept=".csv,text/csv"
+                disabled={isBlockedByRole}
+                onChange={handleFileUpload}
+                className="hidden"
+              />
+            </label>
+
+            <button
+              type="button"
+              onClick={handleExportCsv}
+              className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold cursor-pointer"
+            >
+              3. Ekspor ke CSV (Excel)
+            </button>
+
+            <button
+              type="button"
+              disabled={savingCloud || isBlockedByRole || importedRows.length === 0}
+              onClick={handleSaveToSupabase}
+              className="px-4 py-2.5 rounded-xl bg-teal-700 hover:bg-teal-800 disabled:bg-slate-300 text-white text-xs font-semibold cursor-pointer"
+            >
+              {savingCloud ? 'Menyimpan...' : '4. Simpan ke Supabase'}
+            </button>
+          </div>
+
+          {statusMsg && (
+            <div className="rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-2.5 text-xs font-medium text-emerald-900">
+              {statusMsg}
+            </div>
+          )}
+
+          <div>
+            <div className="text-xs font-semibold text-slate-700 mb-2">
+              Pratinjau Data ({importedRows.length > 0 ? `${importedRows.length} baris diimpor` : 'Contoh Template'})
+            </div>
+            <div className="overflow-x-auto border border-slate-200 rounded-xl">
+              <table className="w-full text-left border-collapse text-xs">
+                <thead>
+                  <tr className="bg-slate-100 text-slate-700">
+                    {activeCfg.headers.map((h) => (
+                      <th key={h} className="px-3 py-2 border-b border-slate-200 font-semibold">
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {(importedRows.length > 0
+                    ? importedRows.slice(0, 8).map((r) => activeCfg.headers.map((h) => r[h] ?? ''))
+                    : activeCfg.sampleRows
+                  ).map((row, rIdx) => (
+                    <tr key={rIdx} className="border-b border-slate-100">
+                      {row.map((cell, cIdx) => (
+                        <td key={cIdx} className="px-3 py-2 text-slate-700">
+                          {cell}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function PortalAuthGate() {
   const [session, setSession] = useState<any>(null);
@@ -109,6 +621,8 @@ function PortalAuthGate() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [masterReadOnlyNotice, setMasterReadOnlyNotice] = useState(false);
+  const [ioModalOpen, setIoModalOpen] = useState(false);
 
   useEffect(() => {
     ensurePermanentSupabaseConfig();
@@ -137,26 +651,40 @@ function PortalAuthGate() {
     };
   }, []);
 
+  const isCurrentAdmin =
+    session?.user?.email?.toLowerCase() === ADMIN_EMAIL;
+
   useEffect(() => {
     if (!session) return;
-    hideManualSupabasePrompts();
+
+    const runGuards = () => {
+      hideManualSupabasePrompts();
+      const locked = lockDataMasterForNonAdmin(isCurrentAdmin);
+      setMasterReadOnlyNotice(!isCurrentAdmin && locked);
+    };
+
+    runGuards();
 
     const observer = new MutationObserver(() => {
-      hideManualSupabasePrompts();
+      runGuards();
     });
 
     const root = document.getElementById('root');
     if (root) {
-      observer.observe(root, { childList: true, subtree: true });
+      observer.observe(root, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+      });
     }
 
-    const timer = window.setTimeout(hideManualSupabasePrompts, 400);
+    const interval = window.setInterval(runGuards, 300);
 
     return () => {
       observer.disconnect();
-      window.clearTimeout(timer);
+      window.clearInterval(interval);
     };
-  }, [session]);
+  }, [session, isCurrentAdmin]);
 
   const handleSelectRole = (role: SelectedRole) => {
     setSelectedRole(role);
@@ -218,6 +746,8 @@ function PortalAuthGate() {
     setEmail('');
     setPassword('');
     setErrorMsg('');
+    setMasterReadOnlyNotice(false);
+    setIoModalOpen(false);
   };
 
   if (checkingSession) {
@@ -234,10 +764,7 @@ function PortalAuthGate() {
   }
 
   if (session) {
-    const activeRole =
-      session.user?.email?.toLowerCase() === ADMIN_EMAIL
-        ? 'ADMIN'
-        : (session.user?.user_metadata?.role || 'GURU').toString().toUpperCase();
+    const activeRole = isCurrentAdmin ? 'ADMIN' : 'GURU';
 
     return (
       <div className="min-h-screen bg-slate-50">
@@ -256,16 +783,45 @@ function PortalAuthGate() {
               • MIN 4 Magelang
             </span>
           </div>
-          <button
-            type="button"
-            data-min4-portal-bar="true"
-            onClick={handleLogout}
-            className="px-3.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white font-semibold transition cursor-pointer"
-          >
-            Log Out
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              data-min4-portal-bar="true"
+              onClick={() => setIoModalOpen(true)}
+              className="px-3.5 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white font-semibold transition cursor-pointer"
+            >
+              Impor &amp; Ekspor Template
+            </button>
+            <button
+              type="button"
+              data-min4-portal-bar="true"
+              onClick={handleLogout}
+              className="px-3.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white font-semibold transition cursor-pointer"
+            >
+              Log Out
+            </button>
+          </div>
         </div>
+
+        {masterReadOnlyNotice && (
+          <div
+            data-min4-portal-bar="true"
+            className="bg-amber-50 border-b border-amber-300 text-amber-950 px-4 py-2.5 text-xs font-medium flex items-center justify-between gap-2"
+          >
+            <span>
+              <strong>Mode Lihat Saja (Data Master):</strong> Pengubahan Data Master hanya dapat dilakukan oleh akun <strong>Admin</strong> (<code>{ADMIN_EMAIL}</code>).
+            </span>
+          </div>
+        )}
+
         <App />
+
+        <TemplateIoModal
+          open={ioModalOpen}
+          onClose={() => setIoModalOpen(false)}
+          user={session.user}
+          isAdmin={isCurrentAdmin}
+        />
       </div>
     );
   }
