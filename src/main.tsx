@@ -66,6 +66,31 @@ function ensurePermanentSupabaseConfig() {
   }
 }
 
+function hideManualSupabasePrompts() {
+  try {
+    const root = document.getElementById('root');
+    if (!root) return;
+
+    const candidates = root.querySelectorAll('button, a, div');
+    candidates.forEach((el) => {
+      const htmlEl = el as HTMLElement;
+      if (htmlEl.dataset.min4PortalBar === 'true') return;
+
+      const text = (htmlEl.textContent || '').replace(/\s+/g, ' ').trim();
+      const isDirectAction =
+        text === 'Mode Lokal • Hubungkan Supabase' ||
+        text.startsWith('Koneksi Supabase') ||
+        text.includes('Status Cloud: Penyimpanan Lokal');
+
+      if (isDirectAction && htmlEl.offsetHeight > 0 && htmlEl.offsetHeight < 140) {
+        htmlEl.style.display = 'none';
+      }
+    });
+  } catch {
+    // Abaikan jika DOM belum siap
+  }
+}
+
 ensurePermanentSupabaseConfig();
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
@@ -108,6 +133,27 @@ function PortalAuthGate() {
       subscription.unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    if (!session) return;
+    hideManualSupabasePrompts();
+
+    const observer = new MutationObserver(() => {
+      hideManualSupabasePrompts();
+    });
+
+    const root = document.getElementById('root');
+    if (root) {
+      observer.observe(root, { childList: true, subtree: true });
+    }
+
+    const timer = window.setTimeout(hideManualSupabasePrompts, 400);
+
+    return () => {
+      observer.disconnect();
+      window.clearTimeout(timer);
+    };
+  }, [session]);
 
   const handleSelectRole = (role: SelectedRole) => {
     setSelectedRole(role);
@@ -192,19 +238,28 @@ function PortalAuthGate() {
 
     return (
       <div className="min-h-screen bg-slate-50">
-        <div className="bg-emerald-950 text-white px-4 py-2 text-xs flex flex-wrap items-center justify-between gap-2 border-b border-emerald-800">
-          <div className="flex items-center gap-2">
-            <span className="px-2 py-0.5 rounded bg-emerald-600 font-semibold">
-              PERAN: {activeRole}
+        <div
+          data-min4-portal-bar="true"
+          className="bg-emerald-950 text-white px-4 py-2.5 text-xs flex flex-wrap items-center justify-between gap-2 border-b border-emerald-800 shadow-sm"
+        >
+          <div className="flex items-center gap-2.5">
+            <span className="px-2.5 py-0.5 rounded-full bg-emerald-600 font-semibold tracking-wide">
+              {activeRole}
             </span>
-            <span className="text-emerald-100">{session.user?.email}</span>
+            <span className="text-emerald-100 font-medium">
+              {session.user?.email}
+            </span>
+            <span className="hidden sm:inline text-emerald-300/80">
+              • MIN 4 Magelang
+            </span>
           </div>
           <button
             type="button"
+            data-min4-portal-bar="true"
             onClick={handleLogout}
-            className="px-3 py-1 rounded bg-white/10 hover:bg-white/20 text-white font-medium transition cursor-pointer"
+            className="px-3.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white font-semibold transition cursor-pointer"
           >
-            Keluar / Ganti Peran
+            Log Out
           </button>
         </div>
         <App />
