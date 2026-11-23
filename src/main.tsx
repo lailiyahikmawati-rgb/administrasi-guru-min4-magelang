@@ -95,91 +95,20 @@ function hideManualSupabasePrompts() {
   }
 }
 
-function isSidebarMenuButton(el: HTMLElement): boolean {
-  const rawText = (el.textContent || '').replace(/\s+/g, ' ').trim();
-  return /^\d+[a-z]?\.\s+/i.test(rawText);
-}
-
-function isDataMasterActive(): boolean {
+function unlockAllControls() {
   try {
     const root = document.getElementById('root');
-    if (!root) return false;
-
-    const headings = Array.from(
-      root.querySelectorAll('h1, h2, h3, h4, h5, p, div, span')
-    );
-    const hasMasterHeader = headings.some((el) => {
+    if (!root) return;
+    root.querySelectorAll('[data-min4-locked="true"]').forEach((el) => {
       const h = el as HTMLElement;
-      if (h.dataset.min4PortalBar === 'true') return false;
-      const t = (h.textContent || '').replace(/\s+/g, ' ').trim();
-      return (
-        (t === '2. Data Master' || t === 'Data Master') &&
-        h.offsetHeight > 0 &&
-        h.offsetHeight < 90
-      );
+      (h as any).disabled = false;
+      h.removeAttribute('disabled');
+      h.removeAttribute('data-min4-locked');
+      h.style.pointerEvents = '';
+      h.style.opacity = '';
     });
-
-    return hasMasterHeader;
   } catch {
-    return false;
-  }
-}
-
-function clearAllLocks() {
-  const root = document.getElementById('root');
-  if (!root) return;
-  root.querySelectorAll('[data-min4-locked="true"]').forEach((el) => {
-    const h = el as HTMLElement;
-    (h as any).disabled = false;
-    h.removeAttribute('disabled');
-    h.removeAttribute('data-min4-locked');
-    h.style.pointerEvents = '';
-    h.style.opacity = '';
-  });
-}
-
-function lockDataMasterForNonAdmin(isAdmin: boolean): boolean {
-  try {
-    const root = document.getElementById('root');
-    if (!root) return false;
-
-    if (isAdmin) {
-      clearAllLocks();
-      return false;
-    }
-
-    const inDataMaster = isDataMasterActive();
-    if (!inDataMaster) {
-      clearAllLocks();
-      return false;
-    }
-
-    const controls = root.querySelectorAll('button, input, select, textarea');
-    controls.forEach((el) => {
-      const h = el as HTMLElement;
-      if (h.dataset.min4PortalBar === 'true') return;
-      if (h.closest('[data-min4-portal-bar="true"]')) return;
-      if (h.tagName === 'BUTTON' && isSidebarMenuButton(h)) return;
-
-      if (
-        h.tagName === 'INPUT' ||
-        h.tagName === 'SELECT' ||
-        h.tagName === 'TEXTAREA'
-      ) {
-        (h as HTMLInputElement).disabled = true;
-        h.dataset.min4Locked = 'true';
-        h.style.opacity = '0.65';
-      } else if (h.tagName === 'BUTTON') {
-        (h as HTMLButtonElement).disabled = true;
-        h.dataset.min4Locked = 'true';
-        h.style.pointerEvents = 'none';
-        h.style.opacity = '0.45';
-      }
-    });
-
-    return true;
-  } catch {
-    return false;
+    // Abaikan jika DOM belum siap
   }
 }
 
@@ -189,14 +118,12 @@ const TEMPLATE_CONFIGS: Record<
   TemplateCategory,
   {
     label: string;
-    adminOnly: boolean;
     headers: string[];
     sampleRows: string[][];
   }
 > = {
   data_master_siswa: {
-    label: 'Data Master Siswa & Kelas (Khusus Admin)',
-    adminOnly: true,
+    label: 'Data Master Siswa & Kelas',
     headers: ['nisn', 'nama_siswa', 'kelas', 'jenis_kelamin', 'keterangan'],
     sampleRows: [
       ['1234567890', 'Ahmad Fauzi', '6A', 'L', 'Siswa aktif MIN 4 Magelang'],
@@ -205,7 +132,6 @@ const TEMPLATE_CONFIGS: Record<
   },
   jurnal_kbm: {
     label: 'Jurnal Pembelajaran & Kehadiran',
-    adminOnly: false,
     headers: ['tanggal', 'kelas', 'mapel', 'materi', 'catatan_kehadiran'],
     sampleRows: [
       ['2026-11-23', '6A', 'Fiqih', 'Zakat Fitrah & Zakat Mal', 'Hadir semua'],
@@ -214,7 +140,6 @@ const TEMPLATE_CONFIGS: Record<
   },
   penilaian_siswa: {
     label: 'Buku Nilai & Skor Asesmen',
-    adminOnly: false,
     headers: ['nisn', 'nama_siswa', 'kelas', 'mapel', 'nilai_tugas', 'nilai_ujian'],
     sampleRows: [
       ['1234567890', 'Ahmad Fauzi', '6A', 'Fiqih', '88', '90'],
@@ -313,30 +238,19 @@ function TemplateIoModal({
   open,
   onClose,
   user,
-  isAdmin,
 }: {
   open: boolean;
   onClose: () => void;
   user: any;
-  isAdmin: boolean;
 }) {
-  const [category, setCategory] = useState<TemplateCategory>(
-    isAdmin ? 'data_master_siswa' : 'jurnal_kbm'
-  );
+  const [category, setCategory] = useState<TemplateCategory>('data_master_siswa');
   const [importedRows, setImportedRows] = useState<Record<string, string>[]>([]);
   const [statusMsg, setStatusMsg] = useState('');
   const [savingCloud, setSavingCloud] = useState(false);
 
-  useEffect(() => {
-    if (!isAdmin && category === 'data_master_siswa') {
-      setCategory('jurnal_kbm');
-    }
-  }, [isAdmin, category]);
-
   if (!open) return null;
 
   const activeCfg = TEMPLATE_CONFIGS[category];
-  const isBlockedByRole = activeCfg.adminOnly && !isAdmin;
 
   const handleDownloadTemplate = () => {
     const csv = buildCsvContent(activeCfg.headers, activeCfg.sampleRows);
@@ -351,12 +265,6 @@ function TemplateIoModal({
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    if (isBlockedByRole) {
-      setStatusMsg('Hanya Admin yang dapat mengimpor template Data Master.');
-      e.target.value = '';
-      return;
-    }
 
     const reader = new FileReader();
     reader.onload = () => {
@@ -391,10 +299,6 @@ function TemplateIoModal({
   };
 
   const handleSaveToSupabase = async () => {
-    if (isBlockedByRole) {
-      setStatusMsg('Hanya Admin yang dapat menyimpan Data Master.');
-      return;
-    }
     if (!user?.id) {
       setStatusMsg('Sesi pengguna tidak ditemukan.');
       return;
@@ -492,11 +396,9 @@ function TemplateIoModal({
               }}
               className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-600"
             >
-              {isAdmin && (
-                <option value="data_master_siswa">
-                  {TEMPLATE_CONFIGS.data_master_siswa.label}
-                </option>
-              )}
+              <option value="data_master_siswa">
+                {TEMPLATE_CONFIGS.data_master_siswa.label}
+              </option>
               <option value="jurnal_kbm">
                 {TEMPLATE_CONFIGS.jurnal_kbm.label}
               </option>
@@ -515,18 +417,11 @@ function TemplateIoModal({
               1. Unduh Template CSV
             </button>
 
-            <label
-              className={`px-4 py-2.5 rounded-xl text-xs font-semibold border ${
-                isBlockedByRole
-                  ? 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed'
-                  : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border-emerald-300 cursor-pointer'
-              }`}
-            >
+            <label className="px-4 py-2.5 rounded-xl text-xs font-semibold border bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border-emerald-300 cursor-pointer">
               2. Impor File CSV Terisi
               <input
                 type="file"
                 accept=".csv,text/csv"
-                disabled={isBlockedByRole}
                 onChange={handleFileUpload}
                 className="hidden"
               />
@@ -542,7 +437,7 @@ function TemplateIoModal({
 
             <button
               type="button"
-              disabled={savingCloud || isBlockedByRole || importedRows.length === 0}
+              disabled={savingCloud || importedRows.length === 0}
               onClick={handleSaveToSupabase}
               className="px-4 py-2.5 rounded-xl bg-teal-700 hover:bg-teal-800 disabled:bg-slate-300 text-white text-xs font-semibold cursor-pointer"
             >
@@ -603,11 +498,11 @@ function PortalAuthGate() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const [masterReadOnlyNotice, setMasterReadOnlyNotice] = useState(false);
   const [ioModalOpen, setIoModalOpen] = useState(false);
 
   useEffect(() => {
     ensurePermanentSupabaseConfig();
+    unlockAllControls();
     let active = true;
 
     supabase.auth.getSession().then(({ data }) => {
@@ -633,22 +528,15 @@ function PortalAuthGate() {
     };
   }, []);
 
-  const isCurrentAdmin =
-    session?.user?.email?.toLowerCase() === ADMIN_EMAIL;
-
   useEffect(() => {
     if (!session) return;
 
-    const runGuards = () => {
-      hideManualSupabasePrompts();
-      const locked = lockDataMasterForNonAdmin(isCurrentAdmin);
-      setMasterReadOnlyNotice(!isCurrentAdmin && locked);
-    };
-
-    runGuards();
+    unlockAllControls();
+    hideManualSupabasePrompts();
 
     const observer = new MutationObserver(() => {
-      runGuards();
+      unlockAllControls();
+      hideManualSupabasePrompts();
     });
 
     const root = document.getElementById('root');
@@ -659,13 +547,16 @@ function PortalAuthGate() {
       });
     }
 
-    const timer = window.setTimeout(runGuards, 300);
+    const timer = window.setTimeout(() => {
+      unlockAllControls();
+      hideManualSupabasePrompts();
+    }, 300);
 
     return () => {
       observer.disconnect();
       window.clearTimeout(timer);
     };
-  }, [session, isCurrentAdmin]);
+  }, [session]);
 
   const handleSelectRole = (role: SelectedRole) => {
     setSelectedRole(role);
@@ -722,13 +613,12 @@ function PortalAuthGate() {
   };
 
   const handleLogout = async () => {
-    clearAllLocks();
+    unlockAllControls();
     await supabase.auth.signOut();
     ensurePermanentSupabaseConfig();
     setEmail('');
     setPassword('');
     setErrorMsg('');
-    setMasterReadOnlyNotice(false);
     setIoModalOpen(false);
   };
 
@@ -746,6 +636,8 @@ function PortalAuthGate() {
   }
 
   if (session) {
+    const isCurrentAdmin =
+      session.user?.email?.toLowerCase() === ADMIN_EMAIL;
     const activeRole = isCurrentAdmin ? 'ADMIN' : 'GURU';
 
     return (
@@ -785,24 +677,12 @@ function PortalAuthGate() {
           </div>
         </div>
 
-        {masterReadOnlyNotice && (
-          <div
-            data-min4-portal-bar="true"
-            className="bg-amber-50 border-b border-amber-300 text-amber-950 px-4 py-2.5 text-xs font-medium flex items-center justify-between gap-2"
-          >
-            <span>
-              <strong>Mode Lihat Saja (Data Master):</strong> Pengubahan Data Master hanya dapat dilakukan oleh akun <strong>Admin</strong> (<code>{ADMIN_EMAIL}</code>).
-            </span>
-          </div>
-        )}
-
         <App />
 
         <TemplateIoModal
           open={ioModalOpen}
           onClose={() => setIoModalOpen(false)}
           user={session.user}
-          isAdmin={isCurrentAdmin}
         />
       </div>
     );
