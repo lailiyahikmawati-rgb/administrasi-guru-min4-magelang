@@ -94,6 +94,110 @@ function hideManualSupabasePrompts() {
   }
 }
 
+function isDataMasterActive(): boolean {
+  try {
+    const root = document.getElementById('root');
+    if (!root) return false;
+
+    const headings = Array.from(root.querySelectorAll('h1, h2, h3, h4, p, div, span'));
+    const hasMasterHeader = headings.some((el) => {
+      const h = el as HTMLElement;
+      if (h.dataset.min4PortalBar === 'true') return false;
+      const t = (h.textContent || '').trim();
+      return (
+        (t === '2. Data Master' || t === 'Data Master') &&
+        h.offsetHeight > 0 &&
+        h.offsetHeight < 80
+      );
+    });
+
+    const activeNavButtons = Array.from(root.querySelectorAll('button, a'));
+    const isNavSelected = activeNavButtons.some((btn) => {
+      const b = btn as HTMLElement;
+      if (b.dataset.min4PortalBar === 'true') return false;
+      const t = (b.textContent || '').trim();
+      const isMasterBtn = t.includes('Data Master');
+      const cls = b.className || '';
+      const ariaSelected = b.getAttribute('aria-selected') === 'true';
+      const ariaCurrent = b.getAttribute('aria-current') === 'page';
+      return (
+        isMasterBtn &&
+        (ariaSelected ||
+          ariaCurrent ||
+          cls.includes('active') ||
+          cls.includes('bg-emerald-700') ||
+          cls.includes('bg-emerald-600') ||
+          cls.includes('bg-white/15'))
+      );
+    });
+
+    return hasMasterHeader || isNavSelected;
+  } catch {
+    return false;
+  }
+}
+
+function lockDataMasterForNonAdmin(isAdmin: boolean): boolean {
+  try {
+    const root = document.getElementById('root');
+    if (!root) return false;
+
+    if (isAdmin) {
+      root.querySelectorAll('[data-min4-locked="true"]').forEach((el) => {
+        const h = el as HTMLElement;
+        h.removeAttribute('disabled');
+        h.removeAttribute('data-min4-locked');
+        h.style.pointerEvents = '';
+        h.style.opacity = '';
+      });
+      return false;
+    }
+
+    const inDataMaster = isDataMasterActive();
+    if (!inDataMaster) return false;
+
+    const controls = root.querySelectorAll('button, input, select, textarea');
+    controls.forEach((el) => {
+      const h = el as HTMLElement;
+      if (h.dataset.min4PortalBar === 'true') return;
+      if (h.closest('[data-min4-portal-bar="true"]')) return;
+
+      const label = (h.textContent || '').trim().toLowerCase();
+      const isNavigationButton =
+        h.tagName === 'BUTTON' &&
+        /^\d+[a-z]?\.\s/i.test(label) &&
+        !label.includes('simpan') &&
+        !label.includes('tambah') &&
+        !label.includes('edit') &&
+        !label.includes('hapus') &&
+        !label.includes('reset') &&
+        !label.includes('import') &&
+        !label.includes('impor');
+
+      if (isNavigationButton) return;
+
+      if (
+        h.tagName === 'INPUT' ||
+        h.tagName === 'SELECT' ||
+        h.tagName === 'TEXTAREA'
+      ) {
+        (h as HTMLInputElement).disabled = true;
+        h.dataset.min4Locked = 'true';
+        h.style.opacity = '0.65';
+      } else if (h.tagName === 'BUTTON') {
+        (h as HTMLButtonElement).disabled = true;
+        h.dataset.min4Locked = 'true';
+        h.style.pointerEvents = 'none';
+        h.style.opacity = '0.45';
+      }
+    });
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 ensurePermanentSupabaseConfig();
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
@@ -109,6 +213,7 @@ function PortalAuthGate() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [masterReadOnlyNotice, setMasterReadOnlyNotice] = useState(false);
 
   useEffect(() => {
     ensurePermanentSupabaseConfig();
@@ -137,26 +242,40 @@ function PortalAuthGate() {
     };
   }, []);
 
+  const isCurrentAdmin =
+    session?.user?.email?.toLowerCase() === ADMIN_EMAIL;
+
   useEffect(() => {
     if (!session) return;
-    hideManualSupabasePrompts();
+
+    const runGuards = () => {
+      hideManualSupabasePrompts();
+      const locked = lockDataMasterForNonAdmin(isCurrentAdmin);
+      setMasterReadOnlyNotice(!isCurrentAdmin && locked);
+    };
+
+    runGuards();
 
     const observer = new MutationObserver(() => {
-      hideManualSupabasePrompts();
+      runGuards();
     });
 
     const root = document.getElementById('root');
     if (root) {
-      observer.observe(root, { childList: true, subtree: true });
+      observer.observe(root, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+      });
     }
 
-    const timer = window.setTimeout(hideManualSupabasePrompts, 400);
+    const interval = window.setInterval(runGuards, 300);
 
     return () => {
       observer.disconnect();
-      window.clearTimeout(timer);
+      window.clearInterval(interval);
     };
-  }, [session]);
+  }, [session, isCurrentAdmin]);
 
   const handleSelectRole = (role: SelectedRole) => {
     setSelectedRole(role);
@@ -218,6 +337,7 @@ function PortalAuthGate() {
     setEmail('');
     setPassword('');
     setErrorMsg('');
+    setMasterReadOnlyNotice(false);
   };
 
   if (checkingSession) {
@@ -234,10 +354,7 @@ function PortalAuthGate() {
   }
 
   if (session) {
-    const activeRole =
-      session.user?.email?.toLowerCase() === ADMIN_EMAIL
-        ? 'ADMIN'
-        : (session.user?.user_metadata?.role || 'GURU').toString().toUpperCase();
+    const activeRole = isCurrentAdmin ? 'ADMIN' : 'GURU';
 
     return (
       <div className="min-h-screen bg-slate-50">
@@ -265,6 +382,18 @@ function PortalAuthGate() {
             Log Out
           </button>
         </div>
+
+        {masterReadOnlyNotice && (
+          <div
+            data-min4-portal-bar="true"
+            className="bg-amber-50 border-b border-amber-300 text-amber-950 px-4 py-2.5 text-xs font-medium flex items-center justify-between gap-2"
+          >
+            <span>
+              <strong>Mode Lihat Saja (Data Master):</strong> Pengubahan Data Master hanya dapat dilakukan oleh akun <strong>Admin</strong> (<code>{ADMIN_EMAIL}</code>).
+            </span>
+          </div>
+        )}
+
         <App />
       </div>
     );
