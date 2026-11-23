@@ -56,7 +56,6 @@ function LoginGate() {
     setLoading(true);
 
     try {
-      // Mendukung input email penuh maupun username singkat (otomatis ke @min4.sch.id)
       const normalizedEmail = email.trim().includes('@')
         ? email.trim()
         : `${email.trim()}@min4.sch.id`;
@@ -110,7 +109,7 @@ function LoginGate() {
           </p>
         </div>
 
-        <form onSubmit={handleLogin} className="p-7 space-y-5">
+        <form onSubmit={handleLogin} autoComplete="off" className="p-7 space-y-5">
           <div>
             <label
               htmlFor="login-user"
@@ -120,13 +119,13 @@ function LoginGate() {
             </label>
             <input
               id="login-user"
+              name="portal_guru_user"
               type="text"
               required
-              autoComplete="username"
+              autoComplete="off"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="lailiya@min4.sch.id"
-              className="w-full px-4 py-3 rounded-xl border border-slate-300 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600 transition"
+              className="w-full px-4 py-3 rounded-xl border border-slate-300 text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600 transition"
             />
           </div>
 
@@ -140,13 +139,13 @@ function LoginGate() {
             <div className="relative">
               <input
                 id="login-password"
+                name="portal_guru_pass"
                 type={showPassword ? 'text' : 'password'}
                 required
-                autoComplete="current-password"
+                autoComplete="new-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Masukkan kata sandi"
-                className="w-full px-4 py-3 pr-20 rounded-xl border border-slate-300 text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600 transition"
+                className="w-full px-4 py-3 pr-20 rounded-xl border border-slate-300 text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:border-emerald-600 transition"
               />
               <button
                 type="button"
