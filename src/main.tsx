@@ -95,49 +95,47 @@ function hideManualSupabasePrompts() {
   }
 }
 
+function isSidebarMenuButton(el: HTMLElement): boolean {
+  const rawText = (el.textContent || '').replace(/\s+/g, ' ').trim();
+  return /^\d+[a-z]?\.\s+/i.test(rawText);
+}
+
 function isDataMasterActive(): boolean {
   try {
     const root = document.getElementById('root');
     if (!root) return false;
 
     const headings = Array.from(
-      root.querySelectorAll('h1, h2, h3, h4, p, div, span')
+      root.querySelectorAll('h1, h2, h3, h4, h5, p, div, span')
     );
     const hasMasterHeader = headings.some((el) => {
       const h = el as HTMLElement;
       if (h.dataset.min4PortalBar === 'true') return false;
-      const t = (h.textContent || '').trim();
+      const t = (h.textContent || '').replace(/\s+/g, ' ').trim();
       return (
         (t === '2. Data Master' || t === 'Data Master') &&
         h.offsetHeight > 0 &&
-        h.offsetHeight < 80
+        h.offsetHeight < 90
       );
     });
 
-    const activeNavButtons = Array.from(root.querySelectorAll('button, a'));
-    const isNavSelected = activeNavButtons.some((btn) => {
-      const b = btn as HTMLElement;
-      if (b.dataset.min4PortalBar === 'true') return false;
-      const t = (b.textContent || '').trim();
-      const isMasterBtn = t.includes('Data Master');
-      const cls = b.className || '';
-      const ariaSelected = b.getAttribute('aria-selected') === 'true';
-      const ariaCurrent = b.getAttribute('aria-current') === 'page';
-      return (
-        isMasterBtn &&
-        (ariaSelected ||
-          ariaCurrent ||
-          cls.includes('active') ||
-          cls.includes('bg-emerald-700') ||
-          cls.includes('bg-emerald-600') ||
-          cls.includes('bg-white/15'))
-      );
-    });
-
-    return hasMasterHeader || isNavSelected;
+    return hasMasterHeader;
   } catch {
     return false;
   }
+}
+
+function clearAllLocks() {
+  const root = document.getElementById('root');
+  if (!root) return;
+  root.querySelectorAll('[data-min4-locked="true"]').forEach((el) => {
+    const h = el as HTMLElement;
+    (h as any).disabled = false;
+    h.removeAttribute('disabled');
+    h.removeAttribute('data-min4-locked');
+    h.style.pointerEvents = '';
+    h.style.opacity = '';
+  });
 }
 
 function lockDataMasterForNonAdmin(isAdmin: boolean): boolean {
@@ -146,38 +144,22 @@ function lockDataMasterForNonAdmin(isAdmin: boolean): boolean {
     if (!root) return false;
 
     if (isAdmin) {
-      root.querySelectorAll('[data-min4-locked="true"]').forEach((el) => {
-        const h = el as HTMLElement;
-        h.removeAttribute('disabled');
-        h.removeAttribute('data-min4-locked');
-        h.style.pointerEvents = '';
-        h.style.opacity = '';
-      });
+      clearAllLocks();
       return false;
     }
 
     const inDataMaster = isDataMasterActive();
-    if (!inDataMaster) return false;
+    if (!inDataMaster) {
+      clearAllLocks();
+      return false;
+    }
 
     const controls = root.querySelectorAll('button, input, select, textarea');
     controls.forEach((el) => {
       const h = el as HTMLElement;
       if (h.dataset.min4PortalBar === 'true') return;
       if (h.closest('[data-min4-portal-bar="true"]')) return;
-
-      const label = (h.textContent || '').trim().toLowerCase();
-      const isNavigationButton =
-        h.tagName === 'BUTTON' &&
-        /^\d+[a-z]?\.\s/i.test(label) &&
-        !label.includes('simpan') &&
-        !label.includes('tambah') &&
-        !label.includes('edit') &&
-        !label.includes('hapus') &&
-        !label.includes('reset') &&
-        !label.includes('import') &&
-        !label.includes('impor');
-
-      if (isNavigationButton) return;
+      if (h.tagName === 'BUTTON' && isSidebarMenuButton(h)) return;
 
       if (
         h.tagName === 'INPUT' ||
@@ -674,15 +656,14 @@ function PortalAuthGate() {
       observer.observe(root, {
         childList: true,
         subtree: true,
-        attributes: true,
       });
     }
 
-    const interval = window.setInterval(runGuards, 300);
+    const timer = window.setTimeout(runGuards, 300);
 
     return () => {
       observer.disconnect();
-      window.clearInterval(interval);
+      window.clearTimeout(timer);
     };
   }, [session, isCurrentAdmin]);
 
@@ -741,6 +722,7 @@ function PortalAuthGate() {
   };
 
   const handleLogout = async () => {
+    clearAllLocks();
     await supabase.auth.signOut();
     ensurePermanentSupabaseConfig();
     setEmail('');
