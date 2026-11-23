@@ -112,7 +112,12 @@ function unlockAllControls() {
   }
 }
 
-type TemplateCategory = 'data_master_siswa' | 'jurnal_kbm' | 'penilaian_siswa';
+type TemplateCategory =
+  | 'data_siswa'
+  | 'data_kelas'
+  | 'mata_pelajaran'
+  | 'jurnal_kbm'
+  | 'buku_nilai';
 
 const TEMPLATE_CONFIGS: Record<
   TemplateCategory,
@@ -122,28 +127,71 @@ const TEMPLATE_CONFIGS: Record<
     sampleRows: string[][];
   }
 > = {
-  data_master_siswa: {
-    label: 'Data Master Siswa & Kelas',
-    headers: ['nisn', 'nama_siswa', 'kelas', 'jenis_kelamin', 'keterangan'],
+  data_siswa: {
+    label: 'Data Master — D. Data Siswa',
+    headers: [
+      'nis',
+      'nama_siswa',
+      'kelas',
+      'jk',
+      'tanggal_lahir',
+      'nama_orang_tua_wali',
+      'no_kontak_orang_tua',
+      'alamat',
+    ],
     sampleRows: [
-      ['1234567890', 'Ahmad Fauzi', '6A', 'L', 'Siswa aktif MIN 4 Magelang'],
-      ['1234567891', 'Aisyah Rahma', '6A', 'P', 'Siswa aktif MIN 4 Magelang'],
+      [
+        '2026001',
+        'Ahmad Fauzi',
+        '6A',
+        'L',
+        '15/05/2015',
+        'Bapak Suryanto',
+        '081234567890',
+        'Krasak, Salaman, Magelang',
+      ],
+      [
+        '2026002',
+        'Aisyah Rahma',
+        '6A',
+        'P',
+        '22/08/2015',
+        'Ibu Nurul Huda',
+        '081298765432',
+        'Salaman, Magelang',
+      ],
+    ],
+  },
+  data_kelas: {
+    label: 'Data Master — C. Data Kelas',
+    headers: ['kode_kelas', 'nama_kelas', 'tingkat', 'wali_kelas'],
+    sampleRows: [
+      ['KLS-6A', 'Kelas 6A', '6', 'Lailiya Hikmawati, S.Pd.I'],
+      ['KLS-6B', 'Kelas 6B', '6', 'Nurhandayani'],
+    ],
+  },
+  mata_pelajaran: {
+    label: 'Data Master — E. Mata Pelajaran',
+    headers: ['kode_mapel', 'nama_mapel', 'kelompok', 'kkm_kkmtp'],
+    sampleRows: [
+      ['FIQ-MI', 'Fiqih', 'PAI & Bahasa Arab', '75'],
+      ['BIN-MI', 'Bahasa Indonesia', 'Muatan Nasional', '75'],
     ],
   },
   jurnal_kbm: {
-    label: 'Jurnal Pembelajaran & Kehadiran',
-    headers: ['tanggal', 'kelas', 'mapel', 'materi', 'catatan_kehadiran'],
+    label: 'Pelaksanaan — Jurnal & Presensi',
+    headers: ['tanggal', 'kelas', 'mata_pelajaran', 'materi_pokok', 'kehadiran_catatan'],
     sampleRows: [
-      ['2026-11-23', '6A', 'Fiqih', 'Zakat Fitrah & Zakat Mal', 'Hadir semua'],
-      ['2026-11-24', '6A', 'Bahasa Indonesia', 'Teks Eksplanasi', '1 siswa izin'],
+      ['23/11/2026', '6A', 'Fiqih', 'Ketentuan Zakat', 'Hadir semua'],
+      ['24/11/2026', '6A', 'Bahasa Indonesia', 'Menulis Teks Eksplanasi', '1 siswa izin'],
     ],
   },
-  penilaian_siswa: {
-    label: 'Buku Nilai & Skor Asesmen',
-    headers: ['nisn', 'nama_siswa', 'kelas', 'mapel', 'nilai_tugas', 'nilai_ujian'],
+  buku_nilai: {
+    label: 'Asesmen — Buku Nilai Siswa',
+    headers: ['nis', 'nama_siswa', 'kelas', 'mata_pelajaran', 'nilai_formatif', 'nilai_sumatif'],
     sampleRows: [
-      ['1234567890', 'Ahmad Fauzi', '6A', 'Fiqih', '88', '90'],
-      ['1234567891', 'Aisyah Rahma', '6A', 'Fiqih', '92', '94'],
+      ['2026001', 'Ahmad Fauzi', '6A', 'Fiqih', '88', '90'],
+      ['2026002', 'Aisyah Rahma', '6A', 'Fiqih', '92', '94'],
     ],
   },
 };
@@ -187,7 +235,9 @@ function parseCsvLine(line: string): string[] {
   return result;
 }
 
-function parseCsvRows(csvText: string): { headers: string[]; records: Record<string, string>[] } {
+function parseCsvRows(
+  csvText: string
+): { headers: string[]; records: Record<string, string>[] } {
   const cleaned = csvText.replace(/^\uFEFF/, '').trim();
   if (!cleaned) {
     return { headers: [], records: [] };
@@ -243,7 +293,7 @@ function TemplateIoModal({
   onClose: () => void;
   user: any;
 }) {
-  const [category, setCategory] = useState<TemplateCategory>('data_master_siswa');
+  const [category, setCategory] = useState<TemplateCategory>('data_siswa');
   const [importedRows, setImportedRows] = useState<Record<string, string>[]>([]);
   const [statusMsg, setStatusMsg] = useState('');
   const [savingCloud, setSavingCloud] = useState(false);
@@ -259,7 +309,9 @@ function TemplateIoModal({
       csv,
       'text/csv;charset=utf-8;'
     );
-    setStatusMsg('Template CSV berhasil diunduh. Silakan isi data di Excel/Sheets lalu impor kembali.');
+    setStatusMsg(
+      'Template CSV sesuai kolom formulir berhasil diunduh. Isi di Excel/Sheets lalu impor kembali.'
+    );
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -275,7 +327,9 @@ function TemplateIoModal({
         return;
       }
       setImportedRows(parsed.records);
-      setStatusMsg(`Berhasil membaca ${parsed.records.length} baris data dari ${file.name}.`);
+      setStatusMsg(
+        `Berhasil membaca ${parsed.records.length} baris data dari ${file.name}.`
+      );
     };
     reader.readAsText(file, 'utf-8');
     e.target.value = '';
@@ -304,7 +358,9 @@ function TemplateIoModal({
       return;
     }
     if (importedRows.length === 0) {
-      setStatusMsg('Silakan impor file CSV terlebih dahulu sebelum menyimpan ke Supabase.');
+      setStatusMsg(
+        'Silakan impor file CSV terlebih dahulu sebelum menyimpan ke Supabase.'
+      );
       return;
     }
 
@@ -363,14 +419,14 @@ function TemplateIoModal({
       data-min4-portal-bar="true"
       className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4"
     >
-      <div className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden max-h-[90vh] flex flex-col">
+      <div className="w-full max-w-3xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden max-h-[90vh] flex flex-col">
         <div className="bg-emerald-800 text-white px-6 py-4 flex items-center justify-between">
           <div>
             <h2 className="text-base font-bold">
               Impor Template &amp; Ekspor Data • MIN 4 Magelang
             </h2>
             <p className="text-xs text-emerald-100">
-              Isi massal lewat CSV/Excel lalu ekspor atau simpan ke Supabase
+              Kolom disesuaikan dengan input formulir aplikasi (Data Siswa, Kelas, Mapel, Jurnal, Nilai)
             </p>
           </div>
           <button
@@ -396,14 +452,20 @@ function TemplateIoModal({
               }}
               className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-600"
             >
-              <option value="data_master_siswa">
-                {TEMPLATE_CONFIGS.data_master_siswa.label}
+              <option value="data_siswa">
+                {TEMPLATE_CONFIGS.data_siswa.label}
+              </option>
+              <option value="data_kelas">
+                {TEMPLATE_CONFIGS.data_kelas.label}
+              </option>
+              <option value="mata_pelajaran">
+                {TEMPLATE_CONFIGS.mata_pelajaran.label}
               </option>
               <option value="jurnal_kbm">
                 {TEMPLATE_CONFIGS.jurnal_kbm.label}
               </option>
-              <option value="penilaian_siswa">
-                {TEMPLATE_CONFIGS.penilaian_siswa.label}
+              <option value="buku_nilai">
+                {TEMPLATE_CONFIGS.buku_nilai.label}
               </option>
             </select>
           </div>
@@ -453,14 +515,21 @@ function TemplateIoModal({
 
           <div>
             <div className="text-xs font-semibold text-slate-700 mb-2">
-              Pratinjau Data ({importedRows.length > 0 ? `${importedRows.length} baris diimpor` : 'Contoh Template'})
+              Pratinjau Kolom &amp; Data (
+              {importedRows.length > 0
+                ? `${importedRows.length} baris diimpor`
+                : 'Contoh Template'}
+              )
             </div>
             <div className="overflow-x-auto border border-slate-200 rounded-xl">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="bg-slate-100 text-slate-700">
                     {activeCfg.headers.map((h) => (
-                      <th key={h} className="px-3 py-2 border-b border-slate-200 font-semibold">
+                      <th
+                        key={h}
+                        className="px-3 py-2 border-b border-slate-200 font-semibold whitespace-nowrap"
+                      >
                         {h}
                       </th>
                     ))}
@@ -468,12 +537,17 @@ function TemplateIoModal({
                 </thead>
                 <tbody>
                   {(importedRows.length > 0
-                    ? importedRows.slice(0, 8).map((r) => activeCfg.headers.map((h) => r[h] ?? ''))
+                    ? importedRows
+                        .slice(0, 8)
+                        .map((r) => activeCfg.headers.map((h) => r[h] ?? ''))
                     : activeCfg.sampleRows
                   ).map((row, rIdx) => (
                     <tr key={rIdx} className="border-b border-slate-100">
                       {row.map((cell, cIdx) => (
-                        <td key={cIdx} className="px-3 py-2 text-slate-700">
+                        <td
+                          key={cIdx}
+                          className="px-3 py-2 text-slate-700 whitespace-nowrap"
+                        >
                           {cell}
                         </td>
                       ))}
