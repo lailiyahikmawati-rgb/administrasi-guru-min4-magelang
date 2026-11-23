@@ -128,7 +128,7 @@ const TEMPLATE_CONFIGS: Record<
   }
 > = {
   data_siswa: {
-    label: 'Data Master — D. Data Siswa',
+    label: 'Data Siswa (NIS, Nama, Kelas, JK, Tgl Lahir, Ortu, Kontak, Alamat)',
     headers: [
       'nis',
       'nama_siswa',
@@ -163,7 +163,7 @@ const TEMPLATE_CONFIGS: Record<
     ],
   },
   data_kelas: {
-    label: 'Data Master — C. Data Kelas',
+    label: 'Data Kelas',
     headers: ['kode_kelas', 'nama_kelas', 'tingkat', 'wali_kelas'],
     sampleRows: [
       ['KLS-6A', 'Kelas 6A', '6', 'Lailiya Hikmawati, S.Pd.I'],
@@ -171,7 +171,7 @@ const TEMPLATE_CONFIGS: Record<
     ],
   },
   mata_pelajaran: {
-    label: 'Data Master — E. Mata Pelajaran',
+    label: 'Mata Pelajaran',
     headers: ['kode_mapel', 'nama_mapel', 'kelompok', 'kkm_kkmtp'],
     sampleRows: [
       ['FIQ-MI', 'Fiqih', 'PAI & Bahasa Arab', '75'],
@@ -179,7 +179,7 @@ const TEMPLATE_CONFIGS: Record<
     ],
   },
   jurnal_kbm: {
-    label: 'Pelaksanaan — Jurnal & Presensi',
+    label: 'Jurnal Pembelajaran & Presensi',
     headers: ['tanggal', 'kelas', 'mata_pelajaran', 'materi_pokok', 'kehadiran_catatan'],
     sampleRows: [
       ['23/11/2026', '6A', 'Fiqih', 'Ketentuan Zakat', 'Hadir semua'],
@@ -187,7 +187,7 @@ const TEMPLATE_CONFIGS: Record<
     ],
   },
   buku_nilai: {
-    label: 'Asesmen — Buku Nilai Siswa',
+    label: 'Buku Nilai Siswa',
     headers: ['nis', 'nama_siswa', 'kelas', 'mata_pelajaran', 'nilai_formatif', 'nilai_sumatif'],
     sampleRows: [
       ['2026001', 'Ahmad Fauzi', '6A', 'Fiqih', '88', '90'],
@@ -295,6 +295,8 @@ function TemplateIoModal({
 }) {
   const [category, setCategory] = useState<TemplateCategory>('data_siswa');
   const [importedRows, setImportedRows] = useState<Record<string, string>[]>([]);
+  const [uploadedFileName, setUploadedFileName] = useState('');
+  const [isDragging, setIsDragging] = useState(false);
   const [statusMsg, setStatusMsg] = useState('');
   const [savingCloud, setSavingCloud] = useState(false);
 
@@ -310,29 +312,44 @@ function TemplateIoModal({
       'text/csv;charset=utf-8;'
     );
     setStatusMsg(
-      'Template CSV sesuai kolom formulir berhasil diunduh. Isi di Excel/Sheets lalu impor kembali.'
+      `Template "${activeCfg.label}" berhasil didownload. Silakan isi di Excel/Sheets lalu upload kembali file CSV-nya.`
     );
   };
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  const processUploadedFile = (file: File) => {
+    setUploadedFileName(file.name);
     const reader = new FileReader();
     reader.onload = () => {
       const text = String(reader.result || '');
       const parsed = parseCsvRows(text);
       if (parsed.records.length === 0) {
-        setStatusMsg('File kosong atau belum memiliki baris data.');
+        setImportedRows([]);
+        setStatusMsg('File kosong atau belum memiliki baris data di bawah baris judul kolom.');
         return;
       }
       setImportedRows(parsed.records);
       setStatusMsg(
-        `Berhasil membaca ${parsed.records.length} baris data dari ${file.name}.`
+        `Berhasil mengupload ${parsed.records.length} baris data dari "${file.name}". Klik "Simpan ke Supabase" atau "Ekspor ke CSV".`
       );
     };
     reader.readAsText(file, 'utf-8');
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      processUploadedFile(file);
+    }
     e.target.value = '';
+  };
+
+  const handleDropFile = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      processUploadedFile(file);
+    }
   };
 
   const handleExportCsv = () => {
@@ -358,9 +375,7 @@ function TemplateIoModal({
       return;
     }
     if (importedRows.length === 0) {
-      setStatusMsg(
-        'Silakan impor file CSV terlebih dahulu sebelum menyimpan ke Supabase.'
-      );
+      setStatusMsg('Silakan upload file template CSV yang sudah diisi terlebih dahulu.');
       return;
     }
 
@@ -405,7 +420,7 @@ function TemplateIoModal({
       }
 
       setStatusMsg(
-        `Sukses! ${importedRows.length} baris data (${activeCfg.label}) tersimpan ke Supabase Cloud.`
+        `Berhasil! ${importedRows.length} baris data tersimpan ke Supabase Cloud.`
       );
     } catch {
       setStatusMsg('Terjadi kesalahan saat menyimpan ke Supabase.');
@@ -423,10 +438,10 @@ function TemplateIoModal({
         <div className="bg-emerald-800 text-white px-6 py-4 flex items-center justify-between">
           <div>
             <h2 className="text-base font-bold">
-              Impor Template &amp; Ekspor Data • MIN 4 Magelang
+              Download &amp; Upload Template Data • MIN 4 Magelang
             </h2>
             <p className="text-xs text-emerald-100">
-              Kolom disesuaikan dengan input formulir aplikasi (Data Siswa, Kelas, Mapel, Jurnal, Nilai)
+              1. Download template → 2. Isi di Excel/Sheets → 3. Upload kembali file CSV
             </p>
           </div>
           <button
@@ -441,13 +456,14 @@ function TemplateIoModal({
         <div className="p-6 space-y-5 overflow-y-auto text-sm">
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-              Pilih Jenis Data / Template
+              Pilih Jenis Template Data
             </label>
             <select
               value={category}
               onChange={(e) => {
                 setCategory(e.target.value as TemplateCategory);
                 setImportedRows([]);
+                setUploadedFileName('');
                 setStatusMsg('');
               }}
               className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-600"
@@ -470,40 +486,76 @@ function TemplateIoModal({
             </select>
           </div>
 
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-4 flex flex-col justify-between gap-3">
+              <div>
+                <div className="text-xs font-bold text-emerald-900">
+                  Langkah 1: Download Template
+                </div>
+                <p className="text-xs text-slate-600 mt-1">
+                  Unduh template CSV kosong/contoh sesuai kolom formulir agar tidak perlu mengetik satu per satu.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleDownloadTemplate}
+                className="w-full py-2.5 px-4 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold cursor-pointer"
+              >
+                Download Template CSV
+              </button>
+            </div>
+
+            <div
+              onDragOver={(e) => {
+                e.preventDefault();
+                setIsDragging(true);
+              }}
+              onDragLeave={() => setIsDragging(false)}
+              onDrop={handleDropFile}
+              className={`rounded-xl border-2 border-dashed p-4 flex flex-col justify-between gap-3 transition ${
+                isDragging
+                  ? 'border-emerald-600 bg-emerald-50'
+                  : 'border-slate-300 bg-slate-50'
+              }`}
+            >
+              <div>
+                <div className="text-xs font-bold text-slate-800">
+                  Langkah 2: Upload Template Terisi
+                </div>
+                <p className="text-xs text-slate-600 mt-1">
+                  {uploadedFileName
+                    ? `File dipilih: ${uploadedFileName}`
+                    : 'Pilih atau seret (drag & drop) file .csv yang sudah selesai diisi.'}
+                </p>
+              </div>
+              <label className="w-full py-2.5 px-4 rounded-xl bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-400 text-xs font-semibold text-center cursor-pointer">
+                Upload File Template (.csv)
+                <input
+                  type="file"
+                  accept=".csv,text/csv"
+                  onChange={handleFileInputChange}
+                  className="hidden"
+                />
+              </label>
+            </div>
+          </div>
+
           <div className="flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={handleDownloadTemplate}
-              className="px-4 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold cursor-pointer"
-            >
-              1. Unduh Template CSV
-            </button>
-
-            <label className="px-4 py-2.5 rounded-xl text-xs font-semibold border bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border-emerald-300 cursor-pointer">
-              2. Impor File CSV Terisi
-              <input
-                type="file"
-                accept=".csv,text/csv"
-                onChange={handleFileUpload}
-                className="hidden"
-              />
-            </label>
-
-            <button
-              type="button"
-              onClick={handleExportCsv}
-              className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold cursor-pointer"
-            >
-              3. Ekspor ke CSV (Excel)
-            </button>
-
             <button
               type="button"
               disabled={savingCloud || importedRows.length === 0}
               onClick={handleSaveToSupabase}
               className="px-4 py-2.5 rounded-xl bg-teal-700 hover:bg-teal-800 disabled:bg-slate-300 text-white text-xs font-semibold cursor-pointer"
             >
-              {savingCloud ? 'Menyimpan...' : '4. Simpan ke Supabase'}
+              {savingCloud ? 'Menyimpan...' : 'Simpan Hasil Upload ke Supabase'}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleExportCsv}
+              className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold cursor-pointer"
+            >
+              Ekspor Data ke CSV (Excel)
             </button>
           </div>
 
@@ -515,10 +567,10 @@ function TemplateIoModal({
 
           <div>
             <div className="text-xs font-semibold text-slate-700 mb-2">
-              Pratinjau Kolom &amp; Data (
+              Pratinjau Data (
               {importedRows.length > 0
-                ? `${importedRows.length} baris diimpor`
-                : 'Contoh Template'}
+                ? `${importedRows.length} baris siap diproses dari file upload`
+                : 'Contoh Isi Template'}
               )
             </div>
             <div className="overflow-x-auto border border-slate-200 rounded-xl">
@@ -738,7 +790,7 @@ function PortalAuthGate() {
               onClick={() => setIoModalOpen(true)}
               className="px-3.5 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white font-semibold transition cursor-pointer"
             >
-              Impor &amp; Ekspor Template
+              Download &amp; Upload Template
             </button>
             <button
               type="button"
