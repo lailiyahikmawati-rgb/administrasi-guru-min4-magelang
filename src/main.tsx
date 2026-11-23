@@ -7,6 +7,7 @@ import './index.css';
 const DEFAULT_SUPABASE_URL = 'https://mqgnwzgyrckdwpysfbgn.supabase.co';
 const DEFAULT_SUPABASE_ANON_KEY =
   'sb_publishable_032N2HjrA1o26xfa8A1V1g_X2lIuXos';
+const ADMIN_EMAIL = 'lailiya@min4.sch.id';
 
 const supabaseUrl =
   (import.meta as any).env?.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
@@ -16,9 +17,12 @@ const supabaseAnonKey =
 
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-function LoginGate() {
+type SelectedRole = 'admin' | 'guru';
+
+function PortalAuthGate() {
   const [session, setSession] = useState<any>(null);
   const [checkingSession, setCheckingSession] = useState(true);
+  const [selectedRole, setSelectedRole] = useState<SelectedRole>('admin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -50,25 +54,51 @@ function LoginGate() {
     };
   }, []);
 
+  const handleSelectRole = (role: SelectedRole) => {
+    setSelectedRole(role);
+    setErrorMsg('');
+  };
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg('');
     setLoading(true);
 
     try {
-      const normalizedEmail = email.trim().includes('@')
-        ? email.trim()
-        : `${email.trim()}@min4.sch.id`;
+      const rawInput = email.trim().toLowerCase();
+      const normalizedEmail = rawInput.includes('@')
+        ? rawInput
+        : `${rawInput}@min4.sch.id`;
 
-      const { error } = await supabase.auth.signInWithPassword({
+      if (selectedRole === 'admin' && normalizedEmail !== ADMIN_EMAIL) {
+        setErrorMsg(
+          `Akses Admin hanya untuk akun ${ADMIN_EMAIL}. Silakan pilih peran Guru atau gunakan email admin.`
+        );
+        return;
+      }
+
+      const { data, error } = await supabase.auth.signInWithPassword({
         email: normalizedEmail,
         password,
       });
 
-      if (error) {
+      if (error || !data.user) {
         setErrorMsg(
-          'Email/username atau kata sandi belum sesuai. Silakan periksa kembali.'
+          'Username/email atau password belum sesuai. Silakan periksa kembali.'
         );
+        return;
+      }
+
+      const assignedRole: SelectedRole =
+        data.user.email?.toLowerCase() === ADMIN_EMAIL ? 'admin' : 'guru';
+
+      if (data.user.user_metadata?.role !== assignedRole) {
+        await supabase.auth.updateUser({
+          data: {
+            ...data.user.user_metadata,
+            role: assignedRole,
+          },
+        });
       }
     } catch {
       setErrorMsg('Gagal terhubung ke layanan autentikasi Supabase.');
@@ -77,13 +107,20 @@ function LoginGate() {
     }
   };
 
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setEmail('');
+    setPassword('');
+    setErrorMsg('');
+  };
+
   if (checkingSession) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-emerald-950 via-emerald-900 to-teal-800 flex items-center justify-center p-4">
-        <div className="bg-white/95 backdrop-blur rounded-2xl shadow-xl px-8 py-6 text-center border border-emerald-100">
+        <div className="bg-white rounded-2xl shadow-xl px-8 py-6 text-center border border-emerald-100">
           <div className="w-8 h-8 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
           <p className="text-sm font-medium text-slate-700">
-            Menyiapkan portal login MIN 4 Magelang...
+            Menyiapkan halaman masuk MIN 4 Magelang...
           </p>
         </div>
       </div>
@@ -91,7 +128,31 @@ function LoginGate() {
   }
 
   if (session) {
-    return <App />;
+    const activeRole =
+      session.user?.email?.toLowerCase() === ADMIN_EMAIL
+        ? 'ADMIN'
+        : (session.user?.user_metadata?.role || 'GURU').toString().toUpperCase();
+
+    return (
+      <div className="min-h-screen bg-slate-50">
+        <div className="bg-emerald-950 text-white px-4 py-2 text-xs flex flex-wrap items-center justify-between gap-2 border-b border-emerald-800">
+          <div className="flex items-center gap-2">
+            <span className="px-2 py-0.5 rounded bg-emerald-600 font-semibold">
+              PERAN: {activeRole}
+            </span>
+            <span className="text-emerald-100">{session.user?.email}</span>
+          </div>
+          <button
+            type="button"
+            onClick={handleLogout}
+            className="px-3 py-1 rounded bg-white/10 hover:bg-white/20 text-white font-medium transition cursor-pointer"
+          >
+            Keluar / Ganti Peran
+          </button>
+        </div>
+        <App />
+      </div>
+    );
   }
 
   return (
@@ -105,21 +166,51 @@ function LoginGate() {
             Aplikasi Administrasi Guru
           </h1>
           <p className="text-emerald-100 text-sm mt-1">
-            MIN 4 Magelang • Sistem Terintegrasi
+            MIN 4 Magelang • Pilih Peran Masuk
           </p>
         </div>
 
         <form onSubmit={handleLogin} autoComplete="off" className="p-7 space-y-5">
           <div>
+            <span className="block text-sm font-semibold text-slate-700 mb-2">
+              Masuk Sebagai
+            </span>
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => handleSelectRole('admin')}
+                className={`py-2.5 px-4 rounded-xl text-sm font-semibold border transition cursor-pointer ${
+                  selectedRole === 'admin'
+                    ? 'bg-emerald-700 text-white border-emerald-700 shadow-sm'
+                    : 'bg-slate-50 text-slate-700 border-slate-300 hover:bg-emerald-50'
+                }`}
+              >
+                Admin
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSelectRole('guru')}
+                className={`py-2.5 px-4 rounded-xl text-sm font-semibold border transition cursor-pointer ${
+                  selectedRole === 'guru'
+                    ? 'bg-emerald-700 text-white border-emerald-700 shadow-sm'
+                    : 'bg-slate-50 text-slate-700 border-slate-300 hover:bg-emerald-50'
+                }`}
+              >
+                Guru
+              </button>
+            </div>
+          </div>
+
+          <div>
             <label
               htmlFor="login-user"
               className="block text-sm font-semibold text-slate-700 mb-1.5"
             >
-              Username / Email Guru
+              Username / Email {selectedRole === 'admin' ? 'Admin' : 'Guru'}
             </label>
             <input
               id="login-user"
-              name="portal_guru_user"
+              name="portal_login_user"
               type="text"
               required
               autoComplete="off"
@@ -139,7 +230,7 @@ function LoginGate() {
             <div className="relative">
               <input
                 id="login-password"
-                name="portal_guru_pass"
+                name="portal_login_pass"
                 type={showPassword ? 'text' : 'password'}
                 required
                 autoComplete="new-password"
@@ -168,12 +259,10 @@ function LoginGate() {
             disabled={loading}
             className="w-full py-3.5 px-4 rounded-xl bg-emerald-700 hover:bg-emerald-800 disabled:bg-emerald-400 text-white font-semibold shadow-md shadow-emerald-900/15 transition cursor-pointer"
           >
-            {loading ? 'Memeriksa Akun...' : 'Masuk ke Aplikasi'}
+            {loading
+              ? 'Memeriksa Akun...'
+              : `Masuk Sebagai ${selectedRole === 'admin' ? 'Admin' : 'Guru'}`}
           </button>
-
-          <p className="text-center text-xs text-slate-400 pt-1">
-            Akses khusus guru terdaftar • MIN 4 Magelang
-          </p>
         </form>
       </div>
     </div>
@@ -182,6 +271,6 @@ function LoginGate() {
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
-    <LoginGate />
+    <PortalAuthGate />
   </React.StrictMode>
 );
