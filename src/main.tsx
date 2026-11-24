@@ -112,124 +112,45 @@ function unlockAllControls() {
   }
 }
 
-type TemplateCategory =
-  | 'data_siswa'
-  | 'data_kelas'
-  | 'mata_pelajaran'
-  | 'jurnal_kbm'
-  | 'buku_nilai';
+export interface SiswaRecord {
+  id: string;
+  nis: string;
+  nisn: string;
+  namaLengkap: string;
+  kelas: string;
+  username: string;
+  password: string;
+}
 
-const TEMPLATE_CONFIGS: Record<
-  TemplateCategory,
+const INITIAL_SISWA: SiswaRecord[] = [
   {
-    label: string;
-    filePrefix: string;
-    headers: string[];
-    sampleRows: string[][];
-  }
-> = {
-  data_siswa: {
-    label: 'Data Siswa',
-    filePrefix: 'Template_Data_Siswa_MIN4',
-    headers: [
-      'NIS',
-      'NAMA LENGKAP',
-      'KELAS',
-      'JENIS KELAMIN',
-      'TANGGAL LAHIR',
-      'NAMA ORANG TUA',
-      'KONTAK ORANG TUA',
-      'ALAMAT',
-    ],
-    sampleRows: [
-      [
-        '2026001',
-        'MUHAMMAD DAFA KHOIRUL ULUM',
-        '6C',
-        'Laki-laki (L)',
-        '15/05/2015',
-        'Bapak Suryanto',
-        '081234567890',
-        'Krasak, Salaman, Magelang',
-      ],
-      [
-        '2026002',
-        'AISYAH RAHMA',
-        '6C',
-        'Perempuan (P)',
-        '22/08/2015',
-        'Ibu Nurul Huda',
-        '081298765432',
-        'Salaman, Magelang',
-      ],
-    ],
+    id: '1',
+    nis: '111133080001210001',
+    nisn: '',
+    namaLengkap: 'ABDILLAH DESPA JAYASRI',
+    kelas: '6A',
+    username: '111133080001210001',
+    password: '12345.',
   },
-  data_kelas: {
-    label: 'Data Kelas',
-    filePrefix: 'Template_Data_Kelas_MIN4',
-    headers: ['KODE KELAS', 'NAMA KELAS', 'TINGKAT', 'WALI KELAS'],
-    sampleRows: [
-      ['KLS-6C', 'Kelas 6C', '6', 'Lailiya Hikmawati, S.Pd.I'],
-      ['KLS-6A', 'Kelas 6A', '6', 'Guru Kelas 6A'],
-    ],
+  {
+    id: '2',
+    nis: '111133080001210002',
+    nisn: '',
+    namaLengkap: 'ACHMAD SYAHRIZAL CHOERUMAN',
+    kelas: '6A',
+    username: '111133080001210002',
+    password: '12345.',
   },
-  mata_pelajaran: {
-    label: 'Mata Pelajaran',
-    filePrefix: 'Template_Mata_Pelajaran_MIN4',
-    headers: ['KODE MAPEL', 'NAMA MAPEL', 'KELOMPOK', 'KKM / KKMTP'],
-    sampleRows: [
-      ['FIQ-MI', 'Fiqih', 'PAI & Bahasa Arab', '75'],
-      ['QH-MI', 'Al-Quran Hadis', 'PAI & Bahasa Arab', '75'],
-    ],
+  {
+    id: '3',
+    nis: '111133080001210003',
+    nisn: '',
+    namaLengkap: 'AFLAH RAFA SAKA PUTRA',
+    kelas: '6A',
+    username: '111133080001210003',
+    password: '12345.',
   },
-  jurnal_kbm: {
-    label: 'Jurnal & Presensi',
-    filePrefix: 'Template_Jurnal_Presensi_MIN4',
-    headers: ['TANGGAL', 'KELAS', 'MATA PELAJARAN', 'MATERI POKOK', 'CATATAN KEHADIRAN'],
-    sampleRows: [
-      ['24/11/2026', '6C', 'Fiqih', 'Zakat Fitrah & Zakat Mal', 'Hadir semua'],
-      ['25/11/2026', '6C', 'Al-Quran Hadis', 'Hukum Bacaan Mad', '1 siswa izin'],
-    ],
-  },
-  buku_nilai: {
-    label: 'Buku Nilai Siswa',
-    filePrefix: 'Template_Buku_Nilai_MIN4',
-    headers: ['NIS', 'NAMA LENGKAP', 'KELAS', 'MATA PELAJARAN', 'NILAI FORMATIF', 'NILAI SUMATIF'],
-    sampleRows: [
-      ['2026001', 'MUHAMMAD DAFA KHOIRUL ULUM', '6C', 'Fiqih', '88', '90'],
-      ['2026002', 'AISYAH RAHMA', '6C', 'Fiqih', '92', '94'],
-    ],
-  },
-};
-
-function normalizeHeaderKey(h: string): string {
-  return h
-    .toUpperCase()
-    .replace(/[^A-Z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '');
-}
-
-function mapStudentRowForApp(raw: Record<string, string>) {
-  const indexed: Record<string, string> = {};
-  Object.entries(raw).forEach(([k, v]) => {
-    indexed[normalizeHeaderKey(k)] = String(v ?? '').trim();
-  });
-
-  const rawJk = (indexed['JENIS_KELAMIN'] || indexed['JK'] || '').toUpperCase();
-  const jenisKelamin =
-    rawJk === 'P' || rawJk.includes('PEREMPUAN') ? 'Perempuan (P)' : 'Laki-laki (L)';
-
-  return {
-    nis: indexed['NIS'] || '',
-    nama_lengkap: indexed['NAMA_LENGKAP'] || indexed['NAMA_SISWA'] || indexed['FULL_NAME'] || '',
-    kelas: indexed['KELAS'] || indexed['CLASS_ID'] || '',
-    jenis_kelamin: jenisKelamin,
-    tanggal_lahir: indexed['TANGGAL_LAHIR'] || '',
-    nama_orang_tua: indexed['NAMA_ORANG_TUA'] || indexed['NAMA_ORANG_TUA_WALI'] || '',
-    kontak_orang_tua: indexed['KONTAK_ORANG_TUA'] || indexed['NO_KONTAK_ORANG_TUA'] || '',
-    alamat: indexed['ALAMAT'] || '',
-  };
-}
+];
 
 function escapeCsvCell(val: string): string {
   const str = String(val ?? '');
@@ -239,10 +160,17 @@ function escapeCsvCell(val: string): string {
   return str;
 }
 
-function buildCsvContent(headers: string[], rows: string[][]): string {
-  const headerLine = headers.map(escapeCsvCell).join(',');
-  const bodyLines = rows.map((row) => row.map(escapeCsvCell).join(','));
-  return '\uFEFF' + [headerLine, ...bodyLines].join('\n');
+function buildSpreadsheetCsv(rows: SiswaRecord[]): string {
+  const headers = ['nis', 'nisn', 'full_name', 'class_id', 'username', 'password'];
+  const lines = [
+    headers.join(','),
+    ...rows.map((r) =>
+      [r.nis, r.nisn, r.namaLengkap, r.kelas, r.username, r.password]
+        .map(escapeCsvCell)
+        .join(',')
+    ),
+  ];
+  return '\uFEFF' + lines.join('\n');
 }
 
 function detectDelimiter(line: string): string {
@@ -277,61 +205,68 @@ function parseDelimitedLine(line: string, delimiter: string): string[] {
   return result;
 }
 
-function parseUploadedSpreadsheetText(
-  rawText: string
-): { headers: string[]; records: Record<string, string>[] } {
+function parseImportedSiswa(rawText: string): SiswaRecord[] {
   const cleaned = rawText.replace(/^\uFEFF/, '').trim();
-  if (!cleaned) {
-    return { headers: [], records: [] };
-  }
+  if (!cleaned) return [];
 
+  let matrix: string[][] = [];
   if (cleaned.toLowerCase().includes('<table') && cleaned.toLowerCase().includes('<tr')) {
     const parser = new DOMParser();
     const doc = parser.parseFromString(cleaned, 'text/html');
-    const trList = Array.from(doc.querySelectorAll('tr'));
-    const matrix = trList
+    matrix = Array.from(doc.querySelectorAll('tr'))
       .map((tr) =>
         Array.from(tr.querySelectorAll('th, td')).map((cell) =>
           (cell.textContent || '').trim()
         )
       )
       .filter((r) => r.some((c) => c.length > 0));
-
-    if (matrix.length === 0) return { headers: [], records: [] };
-    const headers = matrix[0];
-    const records = matrix.slice(1).map((vals) => {
-      const obj: Record<string, string> = {};
-      headers.forEach((h, idx) => {
-        obj[h] = vals[idx] ?? '';
-      });
-      return obj;
-    });
-    return { headers, records };
+  } else {
+    const lines = cleaned
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0);
+    if (lines.length === 0) return [];
+    const delimiter = detectDelimiter(lines[0]);
+    matrix = lines.map((l) => parseDelimitedLine(l, delimiter));
   }
 
-  const lines = cleaned
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter((l) => l.length > 0);
+  if (matrix.length < 2) return [];
 
-  if (lines.length === 0) {
-    return { headers: [], records: [] };
-  }
+  const headerMap = matrix[0].map((h) =>
+    h.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '')
+  );
 
-  const delimiter = detectDelimiter(lines[0]);
-  const headers = parseDelimitedLine(lines[0], delimiter);
-  const records: Record<string, string>[] = [];
+  const findCol = (keys: string[]) =>
+    headerMap.findIndex((h) => keys.includes(h));
 
-  for (let i = 1; i < lines.length; i++) {
-    const values = parseDelimitedLine(lines[i], delimiter);
-    const rowObj: Record<string, string> = {};
-    headers.forEach((h, idx) => {
-      rowObj[h] = values[idx] ?? '';
-    });
-    records.push(rowObj);
-  }
+  const idxNis = findCol(['nis', 'nomor_induk']);
+  const idxNisn = findCol(['nisn']);
+  const idxNama = findCol(['full_name', 'nama_lengkap', 'nama_lengkap_siswa', 'nama_siswa', 'nama']);
+  const idxKelas = findCol(['class_id', 'kelas']);
+  const idxUser = findCol(['username', 'username_login']);
+  const idxPass = findCol(['password', 'password_login']);
 
-  return { headers, records };
+  return matrix
+    .slice(1)
+    .map((cols, i) => {
+      const nis = idxNis >= 0 ? (cols[idxNis] || '').trim() : '';
+      const nisn = idxNisn >= 0 ? (cols[idxNisn] || '').trim() : '';
+      const namaLengkap = idxNama >= 0 ? (cols[idxNama] || '').trim() : '';
+      const kelas = idxKelas >= 0 ? (cols[idxKelas] || '').trim() : '6A';
+      const rawUser = idxUser >= 0 ? (cols[idxUser] || '').trim() : '';
+      const rawPass = idxPass >= 0 ? (cols[idxPass] || '').trim() : '';
+
+      return {
+        id: `${Date.now()}_${i}`,
+        nis,
+        nisn,
+        namaLengkap,
+        kelas: kelas || '6A',
+        username: rawUser || nisn || nis,
+        password: rawPass || '12345.',
+      };
+    })
+    .filter((item) => item.nis || item.namaLengkap);
 }
 
 function downloadFile(filename: string, content: string, mimeType: string) {
@@ -352,7 +287,7 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 type SelectedRole = 'admin' | 'guru';
 
-function TemplateIoModal({
+function SiswaTemplatePanelModal({
   open,
   onClose,
   user,
@@ -361,183 +296,184 @@ function TemplateIoModal({
   onClose: () => void;
   user: any;
 }) {
-  const [category, setCategory] = useState<TemplateCategory>('data_siswa');
-  const [importedRows, setImportedRows] = useState<Record<string, string>[]>([]);
-  const [uploadedFileName, setUploadedFileName] = useState('');
-  const [isDragging, setIsDragging] = useState(false);
-  const [statusMsg, setStatusMsg] = useState('');
-  const [savingCloud, setSavingCloud] = useState(false);
+  const [siswaList, setSiswaList] = useState<SiswaRecord[]>(INITIAL_SISWA);
+  const [nis, setNis] = useState('');
+  const [nisn, setNisn] = useState('');
+  const [namaLengkap, setNamaLengkap] = useState('');
+  const [kelas, setKelas] = useState('');
+  const [usernameLogin, setUsernameLogin] = useState('');
+  const [passwordLogin, setPasswordLogin] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterKelas, setFilterKelas] = useState('Semua Kelas');
+  const [infoMsg, setInfoMsg] = useState('');
+
+  useEffect(() => {
+    if (!open || !user?.id) return;
+    let active = true;
+
+    supabase
+      .from(STORE_TABLE)
+      .select('payload')
+      .eq('user_id', user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!active) return;
+        const saved = (data?.payload as any)?.data_siswa_records;
+        if (Array.isArray(saved) && saved.length > 0) {
+          setSiswaList(saved);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [open, user?.id]);
 
   if (!open) return null;
 
-  const activeCfg = TEMPLATE_CONFIGS[category];
-
-  const handleDownloadTemplate = () => {
-    const csv = buildCsvContent(activeCfg.headers, activeCfg.sampleRows);
-    downloadFile(
-      `${activeCfg.filePrefix}.csv`,
-      csv,
-      'text/csv;charset=utf-8;'
-    );
-    setStatusMsg(
-      `Template "${activeCfg.filePrefix}.csv" berhasil didownload dengan kolom: ${activeCfg.headers.join(', ')}.`
-    );
-  };
-
-  const processUploadedFile = (file: File) => {
-    setUploadedFileName(file.name);
-    const reader = new FileReader();
-    reader.onload = () => {
-      const text = String(reader.result || '');
-      const parsed = parseUploadedSpreadsheetText(text);
-      if (parsed.records.length === 0) {
-        setImportedRows([]);
-        setStatusMsg(
-          'Tidak ada baris data yang terbaca. Pastikan file memiliki baris header dan baris data terisi (jika memakai .xlsx, simpan dulu sebagai .csv di Excel).'
-        );
-        return;
-      }
-
-      const normalizedRecords =
-        category === 'data_siswa'
-          ? parsed.records.map((rec) => {
-              const mapped = mapStudentRowForApp(rec);
-              return {
-                NIS: mapped.nis,
-                'NAMA LENGKAP': mapped.nama_lengkap,
-                KELAS: mapped.kelas,
-                'JENIS KELAMIN': mapped.jenis_kelamin,
-                'TANGGAL LAHIR': mapped.tanggal_lahir,
-                'NAMA ORANG TUA': mapped.nama_orang_tua,
-                'KONTAK ORANG TUA': mapped.kontak_orang_tua,
-                ALAMAT: mapped.alamat,
-              };
-            })
-          : parsed.records;
-
-      setImportedRows(normalizedRecords);
-      setStatusMsg(
-        `Berhasil mengupload ${normalizedRecords.length} baris data dari "${file.name}". Klik "Simpan Hasil Upload ke Supabase" atau "Ekspor ke CSV".`
-      );
-    };
-    reader.readAsText(file, 'utf-8');
-  };
-
-  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      processUploadedFile(file);
-    }
-    e.target.value = '';
-  };
-
-  const handleDropFile = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    setIsDragging(false);
-    const file = e.dataTransfer.files?.[0];
-    if (file) {
-      processUploadedFile(file);
-    }
-  };
-
-  const handleExportCsv = () => {
-    const rowsToExport =
-      importedRows.length > 0
-        ? importedRows.map((rec) =>
-            activeCfg.headers.map((h) => rec[h] ?? '')
-          )
-        : activeCfg.sampleRows;
-
-    const csv = buildCsvContent(activeCfg.headers, rowsToExport);
-    downloadFile(
-      `${activeCfg.filePrefix}_Terisi.csv`,
-      csv,
-      'text/csv;charset=utf-8;'
-    );
-    setStatusMsg(`Berhasil mengekspor ${rowsToExport.length} baris ke file CSV.`);
-  };
-
-  const handleSaveToSupabase = async () => {
-    if (!user?.id) {
-      setStatusMsg('Sesi pengguna tidak ditemukan.');
-      return;
-    }
-    if (importedRows.length === 0) {
-      setStatusMsg('Silakan upload file template yang sudah diisi terlebih dahulu.');
-      return;
-    }
-
-    setSavingCloud(true);
-    setStatusMsg('');
+  const persistToSupabase = async (nextList: SiswaRecord[], message?: string) => {
+    setSiswaList(nextList);
+    if (message) setInfoMsg(message);
+    if (!user?.id) return;
 
     try {
-      const { data: existing, error: fetchErr } = await supabase
+      const { data: existing } = await supabase
         .from(STORE_TABLE)
         .select('payload')
         .eq('user_id', user.id)
         .maybeSingle();
-
-      if (fetchErr) {
-        setStatusMsg(`Gagal membaca data lama: ${fetchErr.message}`);
-        return;
-      }
 
       const currentPayload =
         existing?.payload && typeof existing.payload === 'object'
           ? (existing.payload as Record<string, any>)
           : {};
 
-      const mappedStudents =
-        category === 'data_siswa'
-          ? importedRows.map((rec) => mapStudentRowForApp(rec))
-          : undefined;
-
-      const nextPayload = {
-        ...currentPayload,
-        [`template_${category}`]: importedRows,
-        ...(mappedStudents ? { data_siswa_master: mappedStudents } : {}),
-        last_template_import_at: new Date().toISOString(),
-      };
-
-      const { error: upsertErr } = await supabase.from(STORE_TABLE).upsert(
+      await supabase.from(STORE_TABLE).upsert(
         {
           user_id: user.id,
-          payload: nextPayload,
+          payload: {
+            ...currentPayload,
+            data_siswa_records: nextList,
+            updated_at_siswa: new Date().toISOString(),
+          },
           updated_at: new Date().toISOString(),
         },
         { onConflict: 'user_id' }
       );
-
-      if (upsertErr) {
-        setStatusMsg(`Gagal menyimpan ke Supabase: ${upsertErr.message}`);
-        return;
-      }
-
-      setStatusMsg(
-        `Berhasil! ${importedRows.length} baris data tersimpan ke Supabase Cloud.`
-      );
     } catch {
-      setStatusMsg('Terjadi kesalahan saat menyimpan ke Supabase.');
-    } finally {
-      setSavingCloud(false);
+      // Abaikan jika sedang offline sementara
     }
   };
 
-  const displayHeaders = activeCfg.headers;
+  const handleAddSiswa = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!nis.trim() || !namaLengkap.trim()) {
+      setInfoMsg('Mohon isi minimal NIS dan Nama Lengkap Siswa.');
+      return;
+    }
+
+    const finalKelas = kelas.trim() || '6A';
+    const finalUsername =
+      usernameLogin.trim() || nisn.trim() || nis.trim();
+    const finalPassword = passwordLogin.trim() || '12345.';
+
+    const newItem: SiswaRecord = {
+      id: `${Date.now()}`,
+      nis: nis.trim(),
+      nisn: nisn.trim(),
+      namaLengkap: namaLengkap.trim().toUpperCase(),
+      kelas: finalKelas,
+      username: finalUsername,
+      password: finalPassword,
+    };
+
+    const nextList = [newItem, ...siswaList];
+    setNis('');
+    setNisn('');
+    setNamaLengkap('');
+    setKelas('');
+    setUsernameLogin('');
+    setPasswordLogin('');
+    await persistToSupabase(nextList, 'Data siswa tersimpan.');
+  };
+
+  const handleDeleteSiswa = async (id: string) => {
+    const nextList = siswaList.filter((item) => item.id !== id);
+    await persistToSupabase(nextList, 'Data siswa dihapus.');
+  };
+
+  const handleDownloadTemplate = () => {
+    const templateSample: SiswaRecord[] = [
+      {
+        id: 'sample-1',
+        nis: '111133080001210001',
+        nisn: '',
+        namaLengkap: 'ABDILLAH DESPA JAYASRI',
+        kelas: '6A',
+        username: '111133080001210001',
+        password: '12345.',
+      },
+    ];
+    const csv = buildSpreadsheetCsv(templateSample);
+    downloadFile('Template_Data_Siswa_MIN4.csv', csv, 'text/csv;charset=utf-8;');
+    setInfoMsg(
+      'Template berhasil diunduh. Isi di Excel/WPS lalu klik "Upload / Import (.csv / .xlsx)".'
+    );
+  };
+
+  const handleUploadFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const parsed = parseImportedSiswa(String(reader.result || ''));
+      if (parsed.length === 0) {
+        setInfoMsg(
+          'Tidak ada data siswa yang terbaca dari file. Pastikan format sesuai template.'
+        );
+        return;
+      }
+      const merged = [...parsed, ...siswaList];
+      await persistToSupabase(
+        merged,
+        `Berhasil mengimpor ${parsed.length} data siswa dari "${file.name}".`
+      );
+    };
+    reader.readAsText(file, 'utf-8');
+    e.target.value = '';
+  };
+
+  const kelasOptions = Array.from(
+    new Set(['6A', '6B', '6C', ...siswaList.map((s) => s.kelas).filter(Boolean)])
+  );
+
+  const filteredList = siswaList.filter((item) => {
+    const matchesKelas =
+      filterKelas === 'Semua Kelas' || item.kelas === filterKelas;
+    const q = searchQuery.trim().toLowerCase();
+    const matchesSearch =
+      !q ||
+      item.nis.toLowerCase().includes(q) ||
+      item.nisn.toLowerCase().includes(q) ||
+      item.namaLengkap.toLowerCase().includes(q) ||
+      item.username.toLowerCase().includes(q);
+    return matchesKelas && matchesSearch;
+  });
 
   return (
     <div
       data-min4-portal-bar="true"
       className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4"
     >
-      <div className="w-full max-w-4xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden max-h-[90vh] flex flex-col">
-        <div className="bg-emerald-800 text-white px-6 py-4 flex items-center justify-between">
+      <div className="w-full max-w-6xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden max-h-[92vh] flex flex-col">
+        <div className="bg-emerald-800 text-white px-6 py-3.5 flex items-center justify-between">
           <div>
             <h2 className="text-base font-bold">
-              Download &amp; Upload Template • MIN 4 Magelang
+              Data Siswa &amp; Template Excel/CSV • MIN 4 Magelang
             </h2>
             <p className="text-xs text-emerald-100">
-              1. Download template → 2. Isi di Excel/WPS → 3. Upload kembali ke aplikasi
+              Input manual atau unduh template, isi di Excel/WPS, lalu upload kembali
             </p>
           </div>
           <button
@@ -549,158 +485,209 @@ function TemplateIoModal({
           </button>
         </div>
 
-        <div className="p-6 space-y-5 overflow-y-auto text-sm">
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-              Pilih Jenis Template Data
-            </label>
-            <select
-              value={category}
-              onChange={(e) => {
-                setCategory(e.target.value as TemplateCategory);
-                setImportedRows([]);
-                setUploadedFileName('');
-                setStatusMsg('');
-              }}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-emerald-600"
-            >
-              <option value="data_siswa">
-                {TEMPLATE_CONFIGS.data_siswa.label}
-              </option>
-              <option value="data_kelas">
-                {TEMPLATE_CONFIGS.data_kelas.label}
-              </option>
-              <option value="mata_pelajaran">
-                {TEMPLATE_CONFIGS.mata_pelajaran.label}
-              </option>
-              <option value="jurnal_kbm">
-                {TEMPLATE_CONFIGS.jurnal_kbm.label}
-              </option>
-              <option value="buku_nilai">
-                {TEMPLATE_CONFIGS.buku_nilai.label}
-              </option>
-            </select>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-4 flex flex-col justify-between gap-3">
+        <div className="p-6 space-y-5 overflow-y-auto bg-slate-50/70">
+          {/* Baris Form Input + Tombol + Simpan */}
+          <form
+            onSubmit={handleAddSiswa}
+            className="bg-white rounded-xl border border-slate-200 p-4 shadow-2xs"
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-3 items-end">
               <div>
-                <div className="text-xs font-bold text-emerald-900">
-                  Langkah 1: Download Template
-                </div>
-                <p className="text-xs text-slate-600 mt-1">
-                  Kolom template: <strong>{activeCfg.headers.join(', ')}</strong>.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={handleDownloadTemplate}
-                className="w-full py-2.5 px-4 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold cursor-pointer"
-              >
-                Download Template ({activeCfg.filePrefix}.csv)
-              </button>
-            </div>
-
-            <div
-              onDragOver={(e) => {
-                e.preventDefault();
-                setIsDragging(true);
-              }}
-              onDragLeave={() => setIsDragging(false)}
-              onDrop={handleDropFile}
-              className={`rounded-xl border-2 border-dashed p-4 flex flex-col justify-between gap-3 transition ${
-                isDragging
-                  ? 'border-emerald-600 bg-emerald-50'
-                  : 'border-slate-300 bg-slate-50'
-              }`}
-            >
-              <div>
-                <div className="text-xs font-bold text-slate-800">
-                  Langkah 2: Upload Template Terisi
-                </div>
-                <p className="text-xs text-slate-600 mt-1">
-                  {uploadedFileName
-                    ? `File dipilih: ${uploadedFileName}`
-                    : 'Klik tombol di bawah atau seret (drag & drop) file template (.csv) yang sudah selesai diisi.'}
-                </p>
-              </div>
-              <label className="w-full py-2.5 px-4 rounded-xl bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-400 text-xs font-semibold text-center cursor-pointer">
-                Upload File Template (.csv)
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  NIS
+                </label>
                 <input
-                  type="file"
-                  accept=".csv,.txt,text/csv"
-                  onChange={handleFileInputChange}
-                  className="hidden"
+                  type="text"
+                  value={nis}
+                  onChange={(e) => setNis(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs text-slate-800 focus:outline-none focus:border-emerald-600"
                 />
-              </label>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  NISN
+                </label>
+                <input
+                  type="text"
+                  value={nisn}
+                  onChange={(e) => setNisn(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs text-slate-800 focus:outline-none focus:border-emerald-600"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Nama Lengkap Siswa
+                </label>
+                <input
+                  type="text"
+                  value={namaLengkap}
+                  onChange={(e) => setNamaLengkap(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs text-slate-800 focus:outline-none focus:border-emerald-600"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Kelas
+                </label>
+                <select
+                  value={kelas}
+                  onChange={(e) => setKelas(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs text-slate-800 bg-white focus:outline-none focus:border-emerald-600"
+                >
+                  <option value="">-- Pilih Kelas --</option>
+                  {kelasOptions.map((k) => (
+                    <option key={k} value={k}>
+                      {k}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Username Login
+                </label>
+                <input
+                  type="text"
+                  value={usernameLogin}
+                  onChange={(e) => setUsernameLogin(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs text-slate-800 focus:outline-none focus:border-emerald-600"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                  Password Login
+                </label>
+                <input
+                  type="text"
+                  value={passwordLogin}
+                  onChange={(e) => setPasswordLogin(e.target.value)}
+                  className="w-full px-3 py-2 rounded-lg border border-slate-300 text-xs text-slate-800 focus:outline-none focus:border-emerald-600"
+                />
+              </div>
+
+              <div>
+                <button
+                  type="submit"
+                  className="w-full py-2 px-3 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold shadow-2xs transition cursor-pointer"
+                >
+                  + Simpan
+                </button>
+              </div>
             </div>
-          </div>
+          </form>
 
-          <div className="flex flex-wrap gap-3">
-            <button
-              type="button"
-              disabled={savingCloud || importedRows.length === 0}
-              onClick={handleSaveToSupabase}
-              className="px-4 py-2.5 rounded-xl bg-teal-700 hover:bg-teal-800 disabled:bg-slate-300 text-white text-xs font-semibold cursor-pointer"
-            >
-              {savingCloud ? 'Menyimpan...' : 'Simpan Hasil Upload ke Supabase'}
-            </button>
+          {/* Baris Pencarian, Filter Kelas, Unduh Template & Upload/Import */}
+          <div className="bg-white rounded-xl border border-slate-200 p-4 space-y-4 shadow-2xs">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-2.5">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Cari nama, NIS, NISN, atau username"
+                  className="px-3.5 py-2 rounded-lg border border-slate-300 text-xs text-slate-700 w-64 focus:outline-none focus:border-emerald-600"
+                />
+                <select
+                  value={filterKelas}
+                  onChange={(e) => setFilterKelas(e.target.value)}
+                  className="px-3 py-2 rounded-lg border border-slate-300 text-xs text-slate-700 bg-white focus:outline-none focus:border-emerald-600"
+                >
+                  <option value="Semua Kelas">Semua Kelas</option>
+                  {kelasOptions.map((k) => (
+                    <option key={k} value={k}>
+                      {k}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-            <button
-              type="button"
-              onClick={handleExportCsv}
-              className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold cursor-pointer"
-            >
-              Ekspor Data ke CSV (Excel)
-            </button>
-          </div>
+              <div className="flex flex-wrap items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={handleDownloadTemplate}
+                  className="px-3.5 py-2 rounded-lg bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer"
+                >
+                  <span>↓ Unduh Template (.xlsx)</span>
+                </button>
 
-          {statusMsg && (
-            <div className="rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-2.5 text-xs font-medium text-emerald-900">
-              {statusMsg}
+                <label className="px-3.5 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold flex items-center gap-1.5 transition cursor-pointer">
+                  <span>↑ Upload / Import (.csv / .xlsx)</span>
+                  <input
+                    type="file"
+                    accept=".csv,.xlsx,.xls,.txt,text/csv"
+                    onChange={handleUploadFile}
+                    className="hidden"
+                  />
+                </label>
+              </div>
             </div>
-          )}
 
-          <div>
-            <div className="text-xs font-semibold text-slate-700 mb-2">
-              Pratinjau Data (
-              {importedRows.length > 0
-                ? `${importedRows.length} baris siap diproses dari "${uploadedFileName}"`
-                : 'Contoh Isi Template'}
-              )
-            </div>
-            <div className="overflow-x-auto border border-slate-200 rounded-xl">
+            {infoMsg && (
+              <div className="rounded-lg bg-emerald-50 border border-emerald-200 px-3.5 py-2 text-xs font-medium text-emerald-900">
+                {infoMsg}
+              </div>
+            )}
+
+            {/* Tabel Data Siswa */}
+            <div className="overflow-x-auto border border-slate-200 rounded-lg">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr className="bg-slate-100 text-slate-700">
-                    {displayHeaders.map((h) => (
-                      <th
-                        key={h}
-                        className="px-3 py-2 border-b border-slate-200 font-semibold whitespace-nowrap"
-                      >
-                        {h}
-                      </th>
-                    ))}
+                  <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                    <th className="py-3 px-4">NIS</th>
+                    <th className="py-3 px-4">NISN</th>
+                    <th className="py-3 px-4">Nama Lengkap</th>
+                    <th className="py-3 px-4">Kelas</th>
+                    <th className="py-3 px-4">Username</th>
+                    <th className="py-3 px-4">Password</th>
+                    <th className="py-3 px-4 text-right">Aksi</th>
                   </tr>
                 </thead>
-                <tbody>
-                  {(importedRows.length > 0
-                    ? importedRows
-                        .slice(0, 10)
-                        .map((r) => displayHeaders.map((h) => r[h] ?? ''))
-                    : activeCfg.sampleRows
-                  ).map((row, rIdx) => (
-                    <tr key={rIdx} className="border-b border-slate-100">
-                      {row.map((cell, cIdx) => (
-                        <td
-                          key={cIdx}
-                          className="px-3 py-2 text-slate-700 whitespace-nowrap"
+                <tbody className="divide-y divide-slate-100">
+                  {filteredList.map((row) => (
+                    <tr key={row.id} className="hover:bg-slate-50/80">
+                      <td className="py-3 px-4 font-mono text-slate-700">
+                        {row.nis}
+                      </td>
+                      <td className="py-3 px-4 text-slate-500">
+                        {row.nisn || '-'}
+                      </td>
+                      <td className="py-3 px-4 font-bold text-slate-900">
+                        {row.namaLengkap}
+                      </td>
+                      <td className="py-3 px-4 text-slate-700">{row.kelas}</td>
+                      <td className="py-3 px-4 font-mono text-emerald-700">
+                        {row.username}
+                      </td>
+                      <td className="py-3 px-4 font-mono text-slate-700">
+                        {row.password}
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteSiswa(row.id)}
+                          title="Hapus data siswa"
+                          className="text-red-500 hover:text-red-700 font-semibold px-2 py-1 rounded hover:bg-red-50 transition cursor-pointer"
                         >
-                          {cell}
-                        </td>
-                      ))}
+                          🗑
+                        </button>
+                      </td>
                     </tr>
                   ))}
+                  {filteredList.length === 0 && (
+                    <tr>
+                      <td
+                        colSpan={7}
+                        className="py-6 px-4 text-center text-slate-400"
+                      >
+                        Belum ada data siswa yang cocok dengan pencarian.
+                      </td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
             </div>
@@ -720,7 +707,7 @@ function PortalAuthGate() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const [ioModalOpen, setIoModalOpen] = useState(false);
+  const [siswaModalOpen, setSiswaModalOpen] = useState(false);
 
   useEffect(() => {
     ensurePermanentSupabaseConfig();
@@ -841,7 +828,7 @@ function PortalAuthGate() {
     setEmail('');
     setPassword('');
     setErrorMsg('');
-    setIoModalOpen(false);
+    setSiswaModalOpen(false);
   };
 
   if (checkingSession) {
@@ -883,10 +870,10 @@ function PortalAuthGate() {
             <button
               type="button"
               data-min4-portal-bar="true"
-              onClick={() => setIoModalOpen(true)}
+              onClick={() => setSiswaModalOpen(true)}
               className="px-3.5 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white font-semibold transition cursor-pointer"
             >
-              Download &amp; Upload Template
+              Unduh &amp; Upload Template Siswa
             </button>
             <button
               type="button"
@@ -901,9 +888,9 @@ function PortalAuthGate() {
 
         <App />
 
-        <TemplateIoModal
-          open={ioModalOpen}
-          onClose={() => setIoModalOpen(false)}
+        <SiswaTemplatePanelModal
+          open={siswaModalOpen}
+          onClose={() => setSiswaModalOpen(false)}
           user={session.user}
         />
       </div>
