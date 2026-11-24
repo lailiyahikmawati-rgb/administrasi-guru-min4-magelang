@@ -123,28 +123,30 @@ const TEMPLATE_CONFIGS: Record<
   TemplateCategory,
   {
     label: string;
+    filePrefix: string;
     headers: string[];
     sampleRows: string[][];
   }
 > = {
   data_siswa: {
-    label: 'Data Siswa (NIS, Nama, Kelas, JK, Tgl Lahir, Ortu, Kontak, Alamat)',
+    label: 'Data Siswa',
+    filePrefix: 'Template_Data_Siswa_MIN4',
     headers: [
-      'nis',
-      'nama_siswa',
-      'kelas',
-      'jk',
-      'tanggal_lahir',
-      'nama_orang_tua_wali',
-      'no_kontak_orang_tua',
-      'alamat',
+      'NIS',
+      'NAMA LENGKAP',
+      'KELAS',
+      'JENIS KELAMIN',
+      'TANGGAL LAHIR',
+      'NAMA ORANG TUA',
+      'KONTAK ORANG TUA',
+      'ALAMAT',
     ],
     sampleRows: [
       [
         '2026001',
-        'Ahmad Fauzi',
-        '6A',
-        'L',
+        'MUHAMMAD DAFA KHOIRUL ULUM',
+        '6C',
+        'Laki-laki (L)',
         '15/05/2015',
         'Bapak Suryanto',
         '081234567890',
@@ -152,9 +154,9 @@ const TEMPLATE_CONFIGS: Record<
       ],
       [
         '2026002',
-        'Aisyah Rahma',
-        '6A',
-        'P',
+        'AISYAH RAHMA',
+        '6C',
+        'Perempuan (P)',
         '22/08/2015',
         'Ibu Nurul Huda',
         '081298765432',
@@ -164,41 +166,74 @@ const TEMPLATE_CONFIGS: Record<
   },
   data_kelas: {
     label: 'Data Kelas',
-    headers: ['kode_kelas', 'nama_kelas', 'tingkat', 'wali_kelas'],
+    filePrefix: 'Template_Data_Kelas_MIN4',
+    headers: ['KODE KELAS', 'NAMA KELAS', 'TINGKAT', 'WALI KELAS'],
     sampleRows: [
-      ['KLS-6A', 'Kelas 6A', '6', 'Lailiya Hikmawati, S.Pd.I'],
-      ['KLS-6B', 'Kelas 6B', '6', 'Nurhandayani'],
+      ['KLS-6C', 'Kelas 6C', '6', 'Lailiya Hikmawati, S.Pd.I'],
+      ['KLS-6A', 'Kelas 6A', '6', 'Guru Kelas 6A'],
     ],
   },
   mata_pelajaran: {
     label: 'Mata Pelajaran',
-    headers: ['kode_mapel', 'nama_mapel', 'kelompok', 'kkm_kkmtp'],
+    filePrefix: 'Template_Mata_Pelajaran_MIN4',
+    headers: ['KODE MAPEL', 'NAMA MAPEL', 'KELOMPOK', 'KKM / KKMTP'],
     sampleRows: [
       ['FIQ-MI', 'Fiqih', 'PAI & Bahasa Arab', '75'],
-      ['BIN-MI', 'Bahasa Indonesia', 'Muatan Nasional', '75'],
+      ['QH-MI', 'Al-Quran Hadis', 'PAI & Bahasa Arab', '75'],
     ],
   },
   jurnal_kbm: {
-    label: 'Jurnal Pembelajaran & Presensi',
-    headers: ['tanggal', 'kelas', 'mata_pelajaran', 'materi_pokok', 'kehadiran_catatan'],
+    label: 'Jurnal & Presensi',
+    filePrefix: 'Template_Jurnal_Presensi_MIN4',
+    headers: ['TANGGAL', 'KELAS', 'MATA PELAJARAN', 'MATERI POKOK', 'CATATAN KEHADIRAN'],
     sampleRows: [
-      ['23/11/2026', '6A', 'Fiqih', 'Ketentuan Zakat', 'Hadir semua'],
-      ['24/11/2026', '6A', 'Bahasa Indonesia', 'Menulis Teks Eksplanasi', '1 siswa izin'],
+      ['24/11/2026', '6C', 'Fiqih', 'Zakat Fitrah & Zakat Mal', 'Hadir semua'],
+      ['25/11/2026', '6C', 'Al-Quran Hadis', 'Hukum Bacaan Mad', '1 siswa izin'],
     ],
   },
   buku_nilai: {
     label: 'Buku Nilai Siswa',
-    headers: ['nis', 'nama_siswa', 'kelas', 'mata_pelajaran', 'nilai_formatif', 'nilai_sumatif'],
+    filePrefix: 'Template_Buku_Nilai_MIN4',
+    headers: ['NIS', 'NAMA LENGKAP', 'KELAS', 'MATA PELAJARAN', 'NILAI FORMATIF', 'NILAI SUMATIF'],
     sampleRows: [
-      ['2026001', 'Ahmad Fauzi', '6A', 'Fiqih', '88', '90'],
-      ['2026002', 'Aisyah Rahma', '6A', 'Fiqih', '92', '94'],
+      ['2026001', 'MUHAMMAD DAFA KHOIRUL ULUM', '6C', 'Fiqih', '88', '90'],
+      ['2026002', 'AISYAH RAHMA', '6C', 'Fiqih', '92', '94'],
     ],
   },
 };
 
+function normalizeHeaderKey(h: string): string {
+  return h
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+
+function mapStudentRowForApp(raw: Record<string, string>) {
+  const indexed: Record<string, string> = {};
+  Object.entries(raw).forEach(([k, v]) => {
+    indexed[normalizeHeaderKey(k)] = String(v ?? '').trim();
+  });
+
+  const rawJk = (indexed['JENIS_KELAMIN'] || indexed['JK'] || '').toUpperCase();
+  const jenisKelamin =
+    rawJk === 'P' || rawJk.includes('PEREMPUAN') ? 'Perempuan (P)' : 'Laki-laki (L)';
+
+  return {
+    nis: indexed['NIS'] || '',
+    nama_lengkap: indexed['NAMA_LENGKAP'] || indexed['NAMA_SISWA'] || indexed['FULL_NAME'] || '',
+    kelas: indexed['KELAS'] || indexed['CLASS_ID'] || '',
+    jenis_kelamin: jenisKelamin,
+    tanggal_lahir: indexed['TANGGAL_LAHIR'] || '',
+    nama_orang_tua: indexed['NAMA_ORANG_TUA'] || indexed['NAMA_ORANG_TUA_WALI'] || '',
+    kontak_orang_tua: indexed['KONTAK_ORANG_TUA'] || indexed['NO_KONTAK_ORANG_TUA'] || '',
+    alamat: indexed['ALAMAT'] || '',
+  };
+}
+
 function escapeCsvCell(val: string): string {
   const str = String(val ?? '');
-  if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+  if (str.includes(',') || str.includes(';') || str.includes('"') || str.includes('\n')) {
     return `"${str.replace(/"/g, '""')}"`;
   }
   return str;
@@ -210,7 +245,14 @@ function buildCsvContent(headers: string[], rows: string[][]): string {
   return '\uFEFF' + [headerLine, ...bodyLines].join('\n');
 }
 
-function parseCsvLine(line: string): string[] {
+function detectDelimiter(line: string): string {
+  if (line.includes('\t')) return '\t';
+  const commas = (line.match(/,/g) || []).length;
+  const semis = (line.match(/;/g) || []).length;
+  return semis > commas ? ';' : ',';
+}
+
+function parseDelimitedLine(line: string, delimiter: string): string[] {
   const result: string[] = [];
   let current = '';
   let inQuotes = false;
@@ -224,7 +266,7 @@ function parseCsvLine(line: string): string[] {
       } else {
         inQuotes = !inQuotes;
       }
-    } else if (ch === ',' && !inQuotes) {
+    } else if (ch === delimiter && !inQuotes) {
       result.push(current.trim());
       current = '';
     } else {
@@ -235,13 +277,38 @@ function parseCsvLine(line: string): string[] {
   return result;
 }
 
-function parseCsvRows(
-  csvText: string
+function parseUploadedSpreadsheetText(
+  rawText: string
 ): { headers: string[]; records: Record<string, string>[] } {
-  const cleaned = csvText.replace(/^\uFEFF/, '').trim();
+  const cleaned = rawText.replace(/^\uFEFF/, '').trim();
   if (!cleaned) {
     return { headers: [], records: [] };
   }
+
+  if (cleaned.toLowerCase().includes('<table') && cleaned.toLowerCase().includes('<tr')) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(cleaned, 'text/html');
+    const trList = Array.from(doc.querySelectorAll('tr'));
+    const matrix = trList
+      .map((tr) =>
+        Array.from(tr.querySelectorAll('th, td')).map((cell) =>
+          (cell.textContent || '').trim()
+        )
+      )
+      .filter((r) => r.some((c) => c.length > 0));
+
+    if (matrix.length === 0) return { headers: [], records: [] };
+    const headers = matrix[0];
+    const records = matrix.slice(1).map((vals) => {
+      const obj: Record<string, string> = {};
+      headers.forEach((h, idx) => {
+        obj[h] = vals[idx] ?? '';
+      });
+      return obj;
+    });
+    return { headers, records };
+  }
+
   const lines = cleaned
     .split(/\r?\n/)
     .map((l) => l.trim())
@@ -251,11 +318,12 @@ function parseCsvRows(
     return { headers: [], records: [] };
   }
 
-  const headers = parseCsvLine(lines[0]);
+  const delimiter = detectDelimiter(lines[0]);
+  const headers = parseDelimitedLine(lines[0], delimiter);
   const records: Record<string, string>[] = [];
 
   for (let i = 1; i < lines.length; i++) {
-    const values = parseCsvLine(lines[i]);
+    const values = parseDelimitedLine(lines[i], delimiter);
     const rowObj: Record<string, string> = {};
     headers.forEach((h, idx) => {
       rowObj[h] = values[idx] ?? '';
@@ -307,12 +375,12 @@ function TemplateIoModal({
   const handleDownloadTemplate = () => {
     const csv = buildCsvContent(activeCfg.headers, activeCfg.sampleRows);
     downloadFile(
-      `template_${category}_min4_magelang.csv`,
+      `${activeCfg.filePrefix}.csv`,
       csv,
       'text/csv;charset=utf-8;'
     );
     setStatusMsg(
-      `Template "${activeCfg.label}" berhasil didownload. Silakan isi di Excel/Sheets lalu upload kembali file CSV-nya.`
+      `Template "${activeCfg.filePrefix}.csv" berhasil didownload dengan kolom: ${activeCfg.headers.join(', ')}.`
     );
   };
 
@@ -321,15 +389,35 @@ function TemplateIoModal({
     const reader = new FileReader();
     reader.onload = () => {
       const text = String(reader.result || '');
-      const parsed = parseCsvRows(text);
+      const parsed = parseUploadedSpreadsheetText(text);
       if (parsed.records.length === 0) {
         setImportedRows([]);
-        setStatusMsg('File kosong atau belum memiliki baris data di bawah baris judul kolom.');
+        setStatusMsg(
+          'Tidak ada baris data yang terbaca. Pastikan file memiliki baris header dan baris data terisi (jika memakai .xlsx, simpan dulu sebagai .csv di Excel).'
+        );
         return;
       }
-      setImportedRows(parsed.records);
+
+      const normalizedRecords =
+        category === 'data_siswa'
+          ? parsed.records.map((rec) => {
+              const mapped = mapStudentRowForApp(rec);
+              return {
+                NIS: mapped.nis,
+                'NAMA LENGKAP': mapped.nama_lengkap,
+                KELAS: mapped.kelas,
+                'JENIS KELAMIN': mapped.jenis_kelamin,
+                'TANGGAL LAHIR': mapped.tanggal_lahir,
+                'NAMA ORANG TUA': mapped.nama_orang_tua,
+                'KONTAK ORANG TUA': mapped.kontak_orang_tua,
+                ALAMAT: mapped.alamat,
+              };
+            })
+          : parsed.records;
+
+      setImportedRows(normalizedRecords);
       setStatusMsg(
-        `Berhasil mengupload ${parsed.records.length} baris data dari "${file.name}". Klik "Simpan ke Supabase" atau "Ekspor ke CSV".`
+        `Berhasil mengupload ${normalizedRecords.length} baris data dari "${file.name}". Klik "Simpan Hasil Upload ke Supabase" atau "Ekspor ke CSV".`
       );
     };
     reader.readAsText(file, 'utf-8');
@@ -362,7 +450,7 @@ function TemplateIoModal({
 
     const csv = buildCsvContent(activeCfg.headers, rowsToExport);
     downloadFile(
-      `ekspor_${category}_min4_magelang.csv`,
+      `${activeCfg.filePrefix}_Terisi.csv`,
       csv,
       'text/csv;charset=utf-8;'
     );
@@ -375,7 +463,7 @@ function TemplateIoModal({
       return;
     }
     if (importedRows.length === 0) {
-      setStatusMsg('Silakan upload file template CSV yang sudah diisi terlebih dahulu.');
+      setStatusMsg('Silakan upload file template yang sudah diisi terlebih dahulu.');
       return;
     }
 
@@ -399,9 +487,15 @@ function TemplateIoModal({
           ? (existing.payload as Record<string, any>)
           : {};
 
+      const mappedStudents =
+        category === 'data_siswa'
+          ? importedRows.map((rec) => mapStudentRowForApp(rec))
+          : undefined;
+
       const nextPayload = {
         ...currentPayload,
         [`template_${category}`]: importedRows,
+        ...(mappedStudents ? { data_siswa_master: mappedStudents } : {}),
         last_template_import_at: new Date().toISOString(),
       };
 
@@ -429,19 +523,21 @@ function TemplateIoModal({
     }
   };
 
+  const displayHeaders = activeCfg.headers;
+
   return (
     <div
       data-min4-portal-bar="true"
       className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4"
     >
-      <div className="w-full max-w-3xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden max-h-[90vh] flex flex-col">
+      <div className="w-full max-w-4xl bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden max-h-[90vh] flex flex-col">
         <div className="bg-emerald-800 text-white px-6 py-4 flex items-center justify-between">
           <div>
             <h2 className="text-base font-bold">
-              Download &amp; Upload Template Data • MIN 4 Magelang
+              Download &amp; Upload Template • MIN 4 Magelang
             </h2>
             <p className="text-xs text-emerald-100">
-              1. Download template → 2. Isi di Excel/Sheets → 3. Upload kembali file CSV
+              1. Download template → 2. Isi di Excel/WPS → 3. Upload kembali ke aplikasi
             </p>
           </div>
           <button
@@ -493,7 +589,7 @@ function TemplateIoModal({
                   Langkah 1: Download Template
                 </div>
                 <p className="text-xs text-slate-600 mt-1">
-                  Unduh template CSV kosong/contoh sesuai kolom formulir agar tidak perlu mengetik satu per satu.
+                  Kolom template: <strong>{activeCfg.headers.join(', ')}</strong>.
                 </p>
               </div>
               <button
@@ -501,7 +597,7 @@ function TemplateIoModal({
                 onClick={handleDownloadTemplate}
                 className="w-full py-2.5 px-4 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-semibold cursor-pointer"
               >
-                Download Template CSV
+                Download Template ({activeCfg.filePrefix}.csv)
               </button>
             </div>
 
@@ -525,14 +621,14 @@ function TemplateIoModal({
                 <p className="text-xs text-slate-600 mt-1">
                   {uploadedFileName
                     ? `File dipilih: ${uploadedFileName}`
-                    : 'Pilih atau seret (drag & drop) file .csv yang sudah selesai diisi.'}
+                    : 'Klik tombol di bawah atau seret (drag & drop) file template (.csv) yang sudah selesai diisi.'}
                 </p>
               </div>
               <label className="w-full py-2.5 px-4 rounded-xl bg-white hover:bg-emerald-50 text-emerald-800 border border-emerald-400 text-xs font-semibold text-center cursor-pointer">
                 Upload File Template (.csv)
                 <input
                   type="file"
-                  accept=".csv,text/csv"
+                  accept=".csv,.txt,text/csv"
                   onChange={handleFileInputChange}
                   className="hidden"
                 />
@@ -569,7 +665,7 @@ function TemplateIoModal({
             <div className="text-xs font-semibold text-slate-700 mb-2">
               Pratinjau Data (
               {importedRows.length > 0
-                ? `${importedRows.length} baris siap diproses dari file upload`
+                ? `${importedRows.length} baris siap diproses dari "${uploadedFileName}"`
                 : 'Contoh Isi Template'}
               )
             </div>
@@ -577,7 +673,7 @@ function TemplateIoModal({
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="bg-slate-100 text-slate-700">
-                    {activeCfg.headers.map((h) => (
+                    {displayHeaders.map((h) => (
                       <th
                         key={h}
                         className="px-3 py-2 border-b border-slate-200 font-semibold whitespace-nowrap"
@@ -590,8 +686,8 @@ function TemplateIoModal({
                 <tbody>
                   {(importedRows.length > 0
                     ? importedRows
-                        .slice(0, 8)
-                        .map((r) => activeCfg.headers.map((h) => r[h] ?? ''))
+                        .slice(0, 10)
+                        .map((r) => displayHeaders.map((h) => r[h] ?? ''))
                     : activeCfg.sampleRows
                   ).map((row, rIdx) => (
                     <tr key={rIdx} className="border-b border-slate-100">
